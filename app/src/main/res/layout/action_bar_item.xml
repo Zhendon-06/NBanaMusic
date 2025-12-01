@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="160dp"
+    android:layout_height="200dp"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="9dp"
+    app:cardElevation="0dp">
+
+<androidx.constraintlayout.widget.ConstraintLayout
+android:layout_width="match_parent"
+android:layout_height="match_parent">
+
+<!-- 图片区域：占卡片上半部分，保持centerCrop -->
+<ImageView
+    android:id="@+id/card_image"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:scaleType="centerCrop"
+    android:src="@drawable/fengmian"
+    android:contentDescription="专辑封面"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintBottom_toTopOf="@+id/text_container"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent" />
+
+<!-- 文字容器：底部模糊背景，宽度占满 -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/text_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/blur"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/card_image">
+
+    <!-- 标题文字：同步缩小字号，保持居中 -->
+    <TextView
+        android:id="@+id/action_bar_title_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+    android:layout_marginBottom="2dp"
+    android:text="标题"
+    android:textAlignment="center"
+    android:textColor="@android:color/black"
+    android:textSize="15dp"
+    android:textStyle="bold"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>

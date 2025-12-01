@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 未播放进度 -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:height="2dp"/>
+            <solid android:color="#A9A4A4"/>
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+
+    <!-- 已播放进度 -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <size android:height="2dp"/>
+                <solid android:color="#8E8989"/>
+                <corners android:radius="2dp" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

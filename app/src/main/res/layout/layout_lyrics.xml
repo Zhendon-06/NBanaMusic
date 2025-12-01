@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 中间歌词列表，整体居中展示 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_lyrics"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:overScrollMode="never" />
+
+    <!-- 顶部淡入淡出遮罩 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="top"
+        android:background="@drawable/bg_lyrics_fade_top" />
+
+    <!-- 底部淡入淡出遮罩 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_lyrics_fade_bottom" />
+
+</FrameLayout>

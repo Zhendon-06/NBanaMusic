@@ -1,0 +1,43 @@
+
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Base.Theme.BanaMusic" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 自定义主题颜色配置 -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+        <!-- 窗口背景色：纯白色，提供简洁的视觉体验 -->
+        <item name="android:windowBackground">@color/white</item>
+
+        <!-- 表面颜色：白色，用于卡片、对话框等组件 -->
+        <item name="colorSurface">@color/white</item>
+
+        <!-- 背景颜色：白色，用于Activity背景 -->
+        <item name="android:colorBackground">@color/white</item>
+
+        <!-- 
+            自定义PopupMenu样式
+            应用透明模糊背景效果
+            提供现代化的弹出菜单体验
+        -->
+        <item name="android:popupMenuStyle">@style/CustomPopupMenu</item>
+    </style>
+
+    <!-- 
+        应用主题
+        继承自基础主题，作为应用的主主题使用
+    -->
+    <style name="Theme.BanaMusic" parent="Base.Theme.BanaMusic" />
+
+    <style name="Theme.BanaMusic.Fullscreen" parent="Theme.BanaMusic">
+        <item name="android:actionBarStyle">@style/Widget.Theme.BanaMusic.ActionBar.Fullscreen
+        </item>
+        <item name="android:windowActionBarOverlay">true</item>
+        <item name="android:windowBackground">@null</item>
+    </style>
+
+    <style name="ThemeOverlay.BanaMusic.FullscreenContainer" parent="">
+        <item name="fullscreenBackgroundColor">@color/light_blue_600</item>
+        <item name="fullscreenTextColor">@color/light_blue_A200</item>
+    </style>
+
+</resources>
