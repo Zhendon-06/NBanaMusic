@@ -4,7 +4,6 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/white"
         android:id="@+id/music_player_sheet"
         android:orientation="vertical"
         android:elevation="8dp">
@@ -214,7 +213,7 @@
             <ImageView
                 android:id="@+id/btn_like"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:layout_weight="1"
                 android:src="@drawable/favorite" />

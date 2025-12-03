@@ -185,6 +185,7 @@
                     app:cardBackgroundColor="@color/gray2">
 
                     <LinearLayout
+                        android:id="@+id/iv_play"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
@@ -192,7 +193,6 @@
                         android:padding="12dp">
 
                         <ImageView
-                            android:id="@+id/iv_play"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/play" />
@@ -222,6 +222,7 @@
                     app:cardBackgroundColor="@color/gray2">
 
                     <LinearLayout
+                        android:id="@+id/iv_shuffle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
@@ -229,7 +230,6 @@
                         android:padding="12dp">
 
                         <ImageView
-                            android:id="@+id/iv_shuffle"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/random_play" />

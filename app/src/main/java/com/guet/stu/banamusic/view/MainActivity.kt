@@ -32,6 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import com.guet.stu.banamusic.util.setLightStatusBar
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -60,6 +61,9 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 浅色背景下启用“状态栏反色”，让状态栏图标/文字变成深色，避免看不见
+        setLightStatusBar(this, true)
 
         adjustCenterButtonPosition()
         setupNavigation()

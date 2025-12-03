@@ -53,6 +53,32 @@ class AlbumListFragment : Fragment() {
             findNavController().navigate(R.id.mainFragment)
         }
 
+        // 顺序播放：从第一首开始
+        binding.ivPlay.setOnClickListener {
+            val list = viewModel.musicList.value
+            val first = list?.firstOrNull()
+            if (first == null) {
+                Toast.makeText(requireContext(), getString(R.string.no_music_playing), Toast.LENGTH_SHORT).show()
+            } else {
+                // 将完整列表传给 SharedMusicViewModel，播放器页就能顺序/下一首播放
+                val listForPlayer = if (!list.isNullOrEmpty()) list else listOf(first)
+                sharedMusicViewModel.setMusicList(listForPlayer)
+                navigateToMusicPlayer(first)
+            }
+        }
+
+        // 随机播放：从当前列表中随机选一首
+        binding.ivShuffle.setOnClickListener {
+            val list = viewModel.musicList.value
+            val randomMusic = list?.takeIf { it.isNotEmpty() }?.random()
+            if (randomMusic == null) {
+                Toast.makeText(requireContext(), getString(R.string.no_music_playing), Toast.LENGTH_SHORT).show()
+            } else {
+                sharedMusicViewModel.setMusicList(list)
+                navigateToMusicPlayer(randomMusic)
+            }
+        }
+
     }
 
     override fun onDestroyView() {
@@ -73,12 +99,21 @@ class AlbumListFragment : Fragment() {
         viewModel.musicList.observe(viewLifecycleOwner) { list ->
             musicAdapter.submitList(list)
             val coverUrl = list?.firstOrNull()?.pic
+            val firstMusic = list?.firstOrNull()
+
+            // 更新专辑封面
             if (coverUrl != null) {
                 binding.ivAlbumCover.load(coverUrl) {
                     crossfade(true)
                     placeholder(R.drawable.music)
                     error(R.drawable.music)
                 }
+            }
+
+            // 更新顶部标题与歌手名
+            if (firstMusic != null) {
+                binding.tvAlbumTitle.text = firstMusic.song
+                binding.tvArtist.text = firstMusic.sing
             }
         }
 

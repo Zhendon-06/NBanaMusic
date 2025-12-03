@@ -6,136 +6,140 @@ import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 音乐播放单例类：统一管理 MediaPlayer、播放状态和播放进度
- * 使用协程处理播放逻辑，防止界面频繁切换导致播放错乱
+ * 音乐播放管理单例
+ * - 统一管理 MediaPlayer 生命周期
+ * - 管理播放状态、进度、回调
+ * - 使用协程更新进度，避免 UI 切换导致播放错乱
  */
 object MusicPlay {
+
+    /** 当前是否正在播放 */
     private var _isPlaying: Boolean = false
     val isPlaying: Boolean get() = _isPlaying
-    
+
+    /** 全局 MediaPlayer 实例 */
     private var mediaPlayer: MediaPlayer? = null
+
+    /** 当前播放的音乐对象 */
     private var currentMusic: Music? = null
-    
-    // 播放进度相关
+
+    /** 当前播放位置（毫秒） */
     private val _currentPosition = AtomicInteger(0)
     val currentPosition: Int get() = _currentPosition.get()
-    
+
+    /** 音乐总时长（毫秒） */
     private val _duration = AtomicInteger(0)
     val duration: Int get() = _duration.get()
-    
-    // 协程管理
+
+    /** 播放协程作用域（不会随界面销毁） */
     private val playScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    /** 播放任务 Job，用于取消 */
     private var progressJob: Job? = null
     private var playJob: Job? = null
-    
-    // 播放进度回调
+
+    /** 播放进度更新回调 */
     private var onProgressUpdate: ((currentPosition: Int, duration: Int) -> Unit)? = null
-    
-    // 播放完成回调
+
+    /** 播放完成回调 */
     private var onCompletion: (() -> Unit)? = null
-    
-    // 播放状态变化回调
+
+    /** 播放状态变化监听器（支持多个） */
     private val playingStateListeners = mutableSetOf<(isPlaying: Boolean) -> Unit>()
+
+    /** 旧版单一监听器（兼容以前写法） */
     private var legacyPlayingStateListener: ((isPlaying: Boolean) -> Unit)? = null
-    
-    /**
-     * 设置播放进度更新回调
-     */
+
+    // --------------------------
+    // 回调注册部分
+    // --------------------------
+
+    /** 设置进度更新回调 */
     fun setOnProgressUpdateListener(callback: (currentPosition: Int, duration: Int) -> Unit) {
         onProgressUpdate = callback
     }
-    
-    /**
-     * 移除播放进度更新回调
-     */
+
     fun removeProgressUpdateListener() {
         onProgressUpdate = null
     }
-    
-    /**
-     * 设置播放完成回调
-     */
+
+    /** 设置播放完成回调 */
     fun setOnCompletionListener(callback: () -> Unit) {
         onCompletion = callback
     }
-    
-    /**
-     * 移除播放完成回调
-     */
+
     fun removeCompletionListener() {
         onCompletion = null
     }
-    
-    /**
-     * 设置播放状态变化回调
-     */
+
+    /** 设置（替换）播放状态变化监听 */
     fun setOnPlayingStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
         legacyPlayingStateListener?.let { playingStateListeners.remove(it) }
         legacyPlayingStateListener = callback
         playingStateListeners.add(callback)
     }
 
-    /**
-     * 添加播放状态变化监听（支持多个监听器）
-     */
+    /** 添加额外播放状态监听（不会覆盖旧的） */
     fun addPlayingStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
         playingStateListeners.add(callback)
     }
-    
-    /**
-     * 移除播放状态变化回调
-     */
+
+    /** 移除旧监听器 */
     fun removePlayingStateChangedListener() {
         legacyPlayingStateListener?.let { playingStateListeners.remove(it) }
         legacyPlayingStateListener = null
     }
 
-    /**
-     * 移除指定的播放状态监听
-     */
+    /** 移除特定监听器 */
     fun removePlayingStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
         playingStateListeners.remove(callback)
     }
-    
-    /**
-     * 通知播放状态变化
-     */
+
+    /** 通知所有监听器播放状态变化 */
     private fun notifyPlayingStateChanged(isPlaying: Boolean) {
         playingStateListeners.toList().forEach { listener ->
             listener.invoke(isPlaying)
         }
     }
-    
+
+    // --------------------------
+    // 播放主逻辑
+    // --------------------------
+
     /**
      * 播放音乐
      */
     fun play(music: Music, onPrepared: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) {
-        // 如果正在播放同一首歌，不重新播放
-        if (currentMusic?.id == music.id && _isPlaying) {
-            return
-        }
-        
-        // 取消之前的播放任务
+
+        // 正在播放同一首歌 → 直接 return
+        if (currentMusic?.id == music.id && _isPlaying) return
+
+        // 取消旧播放任务
         playJob?.cancel()
-        
+
         playJob = playScope.launch {
             try {
-                // 释放旧的播放器
+                // 释放旧播放器
                 releasePlayer()
-                
+
                 currentMusic = music
-                
-                // 创建新的 MediaPlayer
-                withContext(Dispatchers.IO) {
+
+                // 创建 MediaPlayer（IO 线程）
+                val player = withContext(Dispatchers.IO) {
                     MediaPlayer().apply {
+
+                        // 设置音频属性
                         setAudioAttributes(
                             AudioAttributes.Builder()
                                 .setUsage(AudioAttributes.USAGE_MEDIA)
                                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                                 .build()
                         )
+
+                        // 设置音乐 URL
                         setDataSource(music.url)
-                        
+
+                        // 准备完成回调
                         setOnPreparedListener {
                             _isPlaying = true
                             it.start()
@@ -144,7 +148,8 @@ object MusicPlay {
                             onPrepared?.invoke()
                             startProgressUpdate()
                         }
-                        
+
+                        // 播放完成回调
                         setOnCompletionListener {
                             _isPlaying = false
                             _currentPosition.set(0)
@@ -152,7 +157,8 @@ object MusicPlay {
                             notifyPlayingStateChanged(false)
                             onCompletion?.invoke()
                         }
-                        
+
+                        // 播放错误回调
                         setOnErrorListener { _, what, extra ->
                             _isPlaying = false
                             stopProgressUpdate()
@@ -160,42 +166,40 @@ object MusicPlay {
                             onError?.invoke("播放错误: what=$what, extra=$extra")
                             true
                         }
-                        
+
+                        // 异步准备
                         prepareAsync()
                     }
-                }.let { player ->
-                    mediaPlayer = player
                 }
+
+                mediaPlayer = player
+
             } catch (e: Exception) {
                 _isPlaying = false
                 onError?.invoke(e.message ?: "播放失败")
             }
         }
     }
-    
-    /**
-     * 暂停播放
-     */
+
+    /** 暂停播放 */
     fun pause() {
         playScope.launch {
-            mediaPlayer?.let { player ->
-                if (player.isPlaying) {
-                    player.pause()
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.pause()
                     _isPlaying = false
                     notifyPlayingStateChanged(false)
                 }
             }
         }
     }
-    
-    /**
-     * 继续播放
-     */
+
+    /** 恢复播放 */
     fun resume() {
         playScope.launch {
-            mediaPlayer?.let { player ->
-                if (!player.isPlaying && _currentPosition.get() < _duration.get()) {
-                    player.start()
+            mediaPlayer?.let {
+                if (!it.isPlaying && _currentPosition.get() < _duration.get()) {
+                    it.start()
                     _isPlaying = true
                     notifyPlayingStateChanged(true)
                     startProgressUpdate()
@@ -203,37 +207,25 @@ object MusicPlay {
             }
         }
     }
-    
-    /**
-     * 切换播放/暂停状态
-     */
+
+    /** 切换播放/暂停 */
     fun toggle() {
-        if (_isPlaying) {
-            pause()
-        } else {
-            resume()
-        }
+        if (_isPlaying) pause() else resume()
     }
-    
-    /**
-     * 跳转到指定位置
-     */
+
+    /** 跳转到指定位置 */
     fun seekTo(position: Int) {
         playScope.launch {
-            mediaPlayer?.let { player ->
+            mediaPlayer?.let {
                 try {
-                    player.seekTo(position)
+                    it.seekTo(position)
                     _currentPosition.set(position)
-                } catch (e: Exception) {
-                    // 忽略 seekTo 错误
-                }
+                } catch (_: Exception) {}
             }
         }
     }
-    
-    /**
-     * 停止播放并释放资源
-     */
+
+    /** 停止播放 */
     fun stop() {
         playScope.launch {
             _isPlaying = false
@@ -245,86 +237,62 @@ object MusicPlay {
             _duration.set(0)
         }
     }
-    
-    /**
-     * 获取当前播放的音乐
-     */
+
     fun getCurrentMusic(): Music? = currentMusic
-    
-    /**
-     * 获取播放状态
-     */
     fun getPlayingStatus(): Boolean = _isPlaying
-    
-    /**
-     * 开始更新播放进度
-     */
+
+    // --------------------------
+    // 播放进度更新
+    // --------------------------
+
     private fun startProgressUpdate() {
         stopProgressUpdate()
-        
+
         progressJob = playScope.launch {
             while (isActive && mediaPlayer != null && _isPlaying) {
-                mediaPlayer?.let { player ->
+
+                mediaPlayer?.let {
                     try {
-                        val pos = player.currentPosition
-                        val dur = player.duration
-                        
+                        val pos = it.currentPosition
+                        val dur = it.duration
+
                         _currentPosition.set(pos)
-                        if (dur > 0) {
-                            _duration.set(dur)
-                        }
-                        
-                        // 通知进度更新
+                        if (dur > 0) _duration.set(dur)
+
+                        // 回调 UI 更新
                         onProgressUpdate?.invoke(pos, dur)
-                    } catch (e: Exception) {
-                        // 忽略更新错误
-                    }
+                    } catch (_: Exception) {}
                 }
-                delay(200)
+
+                delay(200) // 每 200ms 更新一次
             }
         }
     }
-    
-    /**
-     * 停止更新播放进度
-     */
+
     private fun stopProgressUpdate() {
         progressJob?.cancel()
         progressJob = null
     }
-    
-    /**
-     * 释放 MediaPlayer
-     */
+
+    /** 释放播放器资源 */
     private fun releasePlayer() {
         playScope.launch {
-            try {
-                mediaPlayer?.release()
-            } catch (e: Exception) {
-                // 忽略释放错误
-            } finally {
-                mediaPlayer = null
-            }
+            try { mediaPlayer?.release() } catch (_: Exception) {}
+            mediaPlayer = null
         }
     }
-    
-    /**
-     * 清理所有资源（应用退出时调用）
-     */
+
+    /** 彻底清理资源（应用退出调用） */
     fun cleanup() {
         stop()
         playJob?.cancel()
         playScope.cancel()
     }
-    
+
     // 兼容旧接口
-    @Deprecated("使用 play() 方法", ReplaceWith("play(music)"))
-    fun toPlaying() {
-        resume()
-    }
-    
-    @Deprecated("使用 pause() 方法", ReplaceWith("pause()"))
-    fun toPause() {
-        pause()
-    }
+    @Deprecated("使用 play() 方法")
+    fun toPlaying() = resume()
+
+    @Deprecated("使用 pause() 方法")
+    fun toPause() = pause()
 }

@@ -21,8 +21,8 @@
         android:id="@+id/user_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
         android:clipToPadding="false"
+        android:fillViewport="true"
         android:paddingBottom="150dp">
 
         <LinearLayout
@@ -35,10 +35,10 @@
             <GridLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:rowCount="2"
-                android:columnCount="2"
                 android:alignmentMode="alignMargins"
-                android:columnOrderPreserved="false">
+                android:columnCount="2"
+                android:columnOrderPreserved="false"
+                android:rowCount="2">
 
                 <!-- 收藏卡片 -->
                 <androidx.cardview.widget.CardView
@@ -53,29 +53,29 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/collect"
-                            android:layout_marginTop="8dp"/>
+                            android:layout_marginTop="8dp"
+                            android:src="@drawable/collect"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
                             android:text="收藏"
-                            android:textSize="16sp"
-                            android:layout_marginTop="4dp"/>
+                            android:textSize="16sp"/>
 
                         <TextView
                             android:id="@+id/love_size"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
                             android:text="57"
-                            android:textSize="14sp"
-                            android:layout_marginBottom="8dp"/>
+                            android:textSize="14sp"/>
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -93,29 +93,29 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/lately"
-                            android:layout_marginTop="8dp"/>
+                            android:layout_marginTop="8dp"
+                            android:src="@drawable/lately"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
                             android:text="最近"
-                            android:textSize="16sp"
-                            android:layout_marginTop="4dp"/>
+                            android:textSize="16sp"/>
 
                         <TextView
                             android:id="@+id/history_size"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
                             android:text="4"
-                            android:textSize="14sp"
-                            android:layout_marginBottom="8dp"/>
+                            android:textSize="14sp"/>
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -133,28 +133,28 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/bendi"
-                            android:layout_marginTop="8dp"/>
+                            android:layout_marginTop="8dp"
+                            android:src="@drawable/bendi"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
                             android:text="本地"
-                            android:textSize="16sp"
-                            android:layout_marginTop="4dp"/>
+                            android:textSize="16sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
                             android:text="115"
-                            android:textSize="14sp"
-                            android:layout_marginBottom="8dp"/>
+                            android:textSize="14sp"/>
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -172,28 +172,28 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <ImageView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            android:src="@drawable/vedio"
-                            android:layout_marginTop="8dp"/>
+                            android:layout_marginTop="8dp"
+                            android:src="@drawable/vedio"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
                             android:text="频道"
-                            android:textSize="16sp"
-                            android:layout_marginTop="4dp"/>
+                            android:textSize="16sp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
                             android:text="0"
-                            android:textSize="14sp"
-                            android:layout_marginBottom="8dp"/>
+                            android:textSize="14sp"/>
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -204,24 +204,24 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp">
+                android:layout_marginTop="16dp"
+                android:orientation="vertical">
 
                 <!-- 标题行：箭头 + 文字 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:padding="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:text="听歌时光机"
                         android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp"/>
+                        android:textStyle="bold"/>
 
                 </LinearLayout>
 
@@ -229,22 +229,36 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:padding="8dp">
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginStart="5dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="4dp"
+                        app:cardPreventCornerOverlap="true"
+                        app:contentPadding="0dp" >
 
-                    <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/fm"
-                        android:contentDescription="我的听歌排行"/>
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToOutline="true"
+                            android:outlineProvider="bounds"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/fm"/>
+
+                    </androidx.cardview.widget.CardView>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
                         android:text="我的听歌排行"
-                        android:textSize="16sp"
-                        android:layout_marginStart="16dp"/>
+                        android:textSize="16sp"/>
 
                 </LinearLayout>
 
@@ -254,128 +268,47 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp">
+                android:layout_marginTop="16dp"
+                android:orientation="vertical">
 
-                <!-- 标题行：箭头 + 文字 + 数量 + 加号 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:padding="8dp">
 
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:text="我创建的歌单"
                         android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp"/>
+                        android:textStyle="bold" />
 
                     <ImageView
                         android:id="@+id/putmusic"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@drawable/tianjia"
-                        android:contentDescription="添加歌单" />
+                        android:contentDescription="添加歌单"
+                        android:src="@drawable/tianjia" />
 
                 </LinearLayout>
 
-                <!-- 歌单列表：导入、我喜欢、默认收藏 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
-
-                    <!-- 导入其他APP的歌单 -->
-                    <LinearLayout
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/my_music_list"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="8dp">
-
-                        <ImageView
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:src="@drawable/fm"
-                            android:contentDescription="导入歌单"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="导入其他APP的歌单"
-                            android:textSize="16sp"
-                            android:layout_marginStart="16dp"/>
-
-                    </LinearLayout>
-
-                    <!-- 我喜欢 -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="8dp">
-
-                        <ImageView
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:src="@drawable/fm"
-                            android:contentDescription="我喜欢"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="我喜欢"
-                            android:textSize="16sp"
-                            android:layout_marginStart="16dp"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="57首"
-                            android:textSize="14sp"
-                            android:layout_marginStart="8dp" />
-
-                    </LinearLayout>
-
-                    <!-- 默认收藏 -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="8dp">
-
-                        <ImageView
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:src="@drawable/fm"
-                            android:contentDescription="默认收藏"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="默认收藏"
-                            android:textSize="16sp"
-                            android:layout_marginStart="16dp"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="1首"
-                            android:textSize="14sp"
-                            android:layout_marginStart="8dp" />
-
-                    </LinearLayout>
-
+                        android:nestedScrollingEnabled="false"
+                        android:paddingHorizontal="10dp"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
                 </LinearLayout>
-
             </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

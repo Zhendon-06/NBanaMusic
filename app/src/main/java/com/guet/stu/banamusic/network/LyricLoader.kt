@@ -1,5 +1,6 @@
 package com.guet.stu.banamusic.network
 
+import com.guet.stu.banamusic.model.music.LyricLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -14,7 +15,10 @@ object LyricLoader {
 
     private val client = OkHttpClient()
 
-    suspend fun loadLyricsById(songId: Long): List<String> = withContext(Dispatchers.IO) {
+    /**
+     * 根据歌曲 ID 拉取 LRC 歌词，并解析为带时间戳的行列表。
+     */
+    suspend fun loadLyricsById(songId: Long): List<LyricLine> = withContext(Dispatchers.IO) {
         val lyricUrl = "https://music.163.com/api/song/media?id=$songId"
 
         val request = Request.Builder()
@@ -39,28 +43,50 @@ object LyricLoader {
         }
 
         if (lyricText.isBlank()) {
-            return@withContext emptyList<String>()
+            return@withContext emptyList<LyricLine>()
         }
 
-        // 按行拆分，并尝试解析 LRC 时间标签
-        val lines = lyricText.lineSequence()
+        // 按行拆分，并按照 LRC 时间标签解析时间与文本
+        val result = mutableListOf<LyricLine>()
+        lyricText.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-            .map { stripLrcTag(it) }
-            .filter { it.isNotEmpty() }
-            .toList()
+            .forEach { rawLine ->
+                // 一个原始行中可能包含多个时间标签，例如 [00:10.00][00:20.00]歌词
+                val timeTags = TIME_TAG_REGEX.findAll(rawLine).toList()
+                if (timeTags.isEmpty()) {
+                    return@forEach
+                }
+                // 去掉所有时间标签后剩余的纯文本
+                val pureText = rawLine.replace(TIME_TAG_REGEX, "").trim()
+                if (pureText.isEmpty()) return@forEach
 
-        return@withContext lines
+                timeTags.forEach { match ->
+                    val minute = match.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
+                    val second = match.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
+                    val fraction = match.groupValues.getOrNull(3)?.trimStart('.') ?: "0"
+                    // fraction 可能是两位或三位，统一换算成毫秒
+                    val millis = when (fraction.length) {
+                        0 -> 0
+                        1 -> (fraction.toIntOrNull() ?: 0) * 100
+                        2 -> (fraction.toIntOrNull() ?: 0) * 10
+                        else -> fraction.take(3).toIntOrNull() ?: 0
+                    }
+                    val timeMs = minute * 60_000 + second * 1_000 + millis
+                    result.add(LyricLine(timeMs = timeMs, text = pureText))
+                }
+            }
+
+        // 按时间排序，去掉完全重复的行
+        val sorted = result
+            .sortedBy { it.timeMs }
+            .distinctBy { it.timeMs to it.text }
+
+        return@withContext sorted
     }
 
-    /**
-     * 去掉类似 [00:01.23] 这样的 LRC 时间标签，返回纯歌词文本
-     */
-    private fun stripLrcTag(raw: String): String {
-        val regex = Regex("^\\[[0-9:.]+]\\s*(.*)$")
-        val match = regex.find(raw) ?: return raw
-        return match.groupValues.getOrNull(1)?.trim().orEmpty()
-    }
+    // [mm:ss.xx] 或 [mm:ss.xxx] 格式的时间标签
+    private val TIME_TAG_REGEX = Regex("""\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?]""")
 }
 
 

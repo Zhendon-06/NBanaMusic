@@ -18,8 +18,11 @@ import coil.load
 import com.guet.stu.banamusic.R
 import com.guet.stu.banamusic.adapter.LyricsAdapter
 import com.guet.stu.banamusic.databinding.FragmentMusicPlayerBinding
+import android.view.MotionEvent
+import android.os.SystemClock
 import com.guet.stu.banamusic.model.music.Music
 import com.guet.stu.banamusic.model.music.MusicPlay
+import com.guet.stu.banamusic.model.music.LyricLine
 import com.guet.stu.banamusic.network.LyricLoader
 import com.guet.stu.banamusic.util.applyStatusBarSpacer
 import com.guet.stu.banamusic.viewmodel.MusicPlayerFragmentViewModel
@@ -36,6 +39,12 @@ class MusicPlayerFragment : Fragment() {
     private val args: MusicPlayerFragmentArgs by navArgs()
     private var lyricsAdapter: LyricsAdapter? = null
     private var isLyricsVisible = false
+    private var lyricLines: List<LyricLine> = emptyList()
+    private var currentLyricIndex: Int = -1
+    // 用户是否正在与歌词列表交互（按下或滑动中）
+    private var isUserInteractingLyrics: Boolean = false
+    // 最近一次触摸歌词列表的时间，用于判断何时恢复自动跟随
+    private var lastLyricsTouchTime: Long = 0L
 
 
     override fun onCreateView(
@@ -180,13 +189,14 @@ class MusicPlayerFragment : Fragment() {
     }
     
     /**
-     * 更新播放进度显示
+     * 更新播放进度显示 & 同步歌词高亮
      */
     private fun updateProgress(currentPosition: Int, duration: Int) {
         binding.seekBar.max = duration
         binding.seekBar.progress = currentPosition
         binding.tvCurrentTime.text = formatTime(currentPosition)
         binding.tvTotalTime.text = formatTime(duration)
+        updateLyricsByProgress(currentPosition)
     }
     private fun formatTime(ms: Int): String {
         val totalSec = ms / 1000
@@ -204,7 +214,7 @@ class MusicPlayerFragment : Fragment() {
     }
 
     private fun updatePlayPauseIcon(isPlaying: Boolean) {
-        val icon = if (isPlaying) R.drawable.ic_pause else R.drawable.play
+        val icon = if (isPlaying) R.drawable.stop else R.drawable.play
         binding.btnPlayPause.setImageResource(icon)
     }
 
@@ -236,9 +246,37 @@ class MusicPlayerFragment : Fragment() {
         binding.layoutLyrics.rvLyrics.apply {
             layoutManager = LinearLayoutManager(requireContext())
             this.adapter = adapter
+
+            // 为了实现类似主流音乐 App 的“上下留白”效果，让首尾几句也能滚到中间显示：
+            // 在 RecyclerView 测量完成后，动态设置上下 padding，并允许内容绘制到 padding 区域。
+            post {
+                val h = height
+                if (h > 0) {
+                    // 这里不是整半屏，只取 1/3 高度，避免可视区域过小
+                    val verticalPadding = h / 3
+                    setPadding(paddingLeft, verticalPadding, paddingRight, verticalPadding)
+                    clipToPadding = false
+                }
+            }
         }
         // 歌词界面点击空白区域时也能切回唱片
         binding.layoutLyrics.root.setOnClickListener { toggleDiscLyricsView() }
+
+        // 监听用户手势，手动滚动时暂时关闭自动回滚
+        binding.layoutLyrics.rvLyrics.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    isUserInteractingLyrics = true
+                    lastLyricsTouchTime = SystemClock.uptimeMillis()
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // 用户手指离开时记录时间，真正恢复自动滚动由 updateLyricsByProgress 控制
+                    isUserInteractingLyrics = false
+                    lastLyricsTouchTime = SystemClock.uptimeMillis()
+                }
+            }
+            false
+        }
 
         // 如果此时已经有当前歌曲，补一次歌词数据
         viewModel.currentMusic.value?.let { current ->
@@ -256,26 +294,95 @@ class MusicPlayerFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launchWhenStarted {
             try {
                 val lines = LyricLoader.loadLyricsById(music.id)
+                lyricLines = lines
+                currentLyricIndex = -1
                 if (lines.isNotEmpty()) {
                     lyricsAdapter?.submitList(lines)
                 } else {
-                    lyricsAdapter?.submitList(
-                        listOf(
-                            "${music.song} - ${music.sing}",
-                            "",
-                            getString(R.string.lyrics_placeholder_hint)
-                        )
+                    // 无歌词时显示占位提示
+                    val placeholder = listOf(
+                        LyricLine(0, "${music.song} - ${music.sing}"),
+                        LyricLine(0, ""),
+                        LyricLine(0, getString(R.string.lyrics_placeholder_hint))
                     )
+                    lyricLines = placeholder
+                    lyricsAdapter?.submitList(placeholder)
                 }
             } catch (e: Exception) {
                 // 请求失败时用占位歌词提示
-                lyricsAdapter?.submitList(
-                    listOf(
-                        "${music.song} - ${music.sing}",
-                        "",
-                        getString(R.string.lyrics_placeholder_hint)
-                    )
+                val placeholder = listOf(
+                    LyricLine(0, "${music.song} - ${music.sing}"),
+                    LyricLine(0, ""),
+                    LyricLine(0, getString(R.string.lyrics_placeholder_hint))
                 )
+                lyricLines = placeholder
+                lyricsAdapter?.submitList(placeholder)
+            }
+        }
+    }
+
+    /**
+     * 根据当前播放进度选择应当高亮的歌词行。
+     */
+    private fun updateLyricsByProgress(currentPosition: Int) {
+        if (lyricLines.isEmpty()) return
+
+        // 找出 <= 当前时间的最后一行
+        val index = lyricLines.indexOfLast { it.timeMs <= currentPosition }
+        if (index < 0 || index == currentLyricIndex) return
+
+        currentLyricIndex = index
+        lyricsAdapter?.updateCurrentIndex(index)
+
+        // 用户离开歌词列表一段时间（例如 2.5 秒）后，再恢复自动滚动到当前行
+        val now = SystemClock.uptimeMillis()
+        val shouldAutoFollow = !isUserInteractingLyrics &&
+                (now - lastLyricsTouchTime) > 2500
+        if (shouldAutoFollow) {
+            scrollToCurrentLyric()
+        }
+    }
+
+    /**
+     * 平滑滚动到当前高亮歌词位置。
+     */
+    private fun scrollToCurrentLyric() {
+        val index = currentLyricIndex
+        if (index < 0) return
+
+        val recyclerView = binding.layoutLyrics.rvLyrics
+        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+
+        // 使用 offset 让当前行尽量出现在父容器垂直中间
+        recyclerView.post {
+            val rvHeight = recyclerView.height
+            if (rvHeight <= 0) {
+                recyclerView.smoothScrollToPosition(index)
+                return@post
+            }
+
+            val view = layoutManager.findViewByPosition(index)
+            val itemHeight = view?.height ?: 0
+            val centerOffset = if (itemHeight > 0) {
+                rvHeight / 2 - itemHeight / 2
+            } else {
+                rvHeight / 2
+            }
+            // 考虑到我们为 RecyclerView 设置了顶部 padding，这里减去 paddingTop，
+            // 保证“当前行”的中心真正出现在可视区域中心。
+            val adjustedOffset = centerOffset - recyclerView.paddingTop
+
+            // 为了有“翻回去”的动画效果，优先使用 smoothScrollBy 做平滑滚动；
+            // 当目标行当前不可见时，退化为 smoothScrollToPosition 再由系统处理动画。
+            val targetView = layoutManager.findViewByPosition(index)
+            if (targetView != null) {
+                // 目标行当前在可见区域内，使用平滑位移，形成“翻回去”的动画感
+                val currentTop = targetView.top
+                val dy = currentTop - adjustedOffset
+                recyclerView.smoothScrollBy(0, dy)
+            } else {
+                // 目标行在屏幕外时，使用系统提供的平滑滚动动画，先滚动到可见区域
+                recyclerView.smoothScrollToPosition(index)
             }
         }
     }

@@ -57,13 +57,13 @@ class MainFragment : Fragment() {
         viewModel.loadDayMusicIfNeeded()
     }
     private fun setJingBar(){
-        binding.music1.actionBarTitleName.text="原创榜"
+//        binding.music1.actionBarTitleName.text="原创榜"
         binding.music1.cardImage.setImageResource(R.drawable.yuanchuang)
-        binding.music2.actionBarTitleName.text="热歌榜"
+//        binding.music2.actionBarTitleName.text="热歌榜"
         binding.music2.cardImage.setImageResource(R.drawable.rege)
-        binding.music3.actionBarTitleName.text="新歌榜"
+//        binding.music3.actionBarTitleName.text="新歌榜"
         binding.music3.cardImage.setImageResource(R.drawable.xinge)
-        binding.music4.actionBarTitleName.text="飙升榜"
+/*        binding.music4.actionBarTitleName.text="飙升榜"*/
         binding.music4.cardImage.setImageResource(R.drawable.biaosheng)
     }
     private fun setupRecyclerViews() = with(binding) {
