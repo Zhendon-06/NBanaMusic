@@ -6,7 +6,6 @@
 
     <application
         android:name=".BanaMusic"
-        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -14,7 +13,11 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/appicon"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BanaMusic">
+        android:theme="@style/Theme.BanaMusic"
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name=".view.PlayListActivity"
+            android:exported="false" />
         <activity
             android:name=".view.SearchPage"
             android:exported="false" />

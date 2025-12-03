@@ -11,3 +11,9 @@ data class Music(
     val pic: String,
     val url: String
 ) : Parcelable
+// MusicMapper.kt
+fun Music.toEntity() = MusicEntity(id, song, sing, pic, url)
+
+fun MusicEntity.toMusic() = Music(id, song, sing, pic, url)
+
+
