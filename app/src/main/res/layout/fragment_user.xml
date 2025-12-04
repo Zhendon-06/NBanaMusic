@@ -17,7 +17,7 @@
             layout="@layout/actionbar" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:id="@+id/user_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -42,7 +42,7 @@
 
                 <!-- 收藏卡片 -->
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_1"
+                    android:id="@+id/card_collect"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"
@@ -74,7 +74,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
-                            android:text="57"
+                            android:text="0"
                             android:textSize="14sp"/>
 
                     </LinearLayout>
@@ -82,7 +82,7 @@
 
                 <!-- 最近卡片 -->
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_2"
+                    android:id="@+id/card_history"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"
@@ -114,7 +114,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
-                            android:text="4"
+                            android:text="0"
                             android:textSize="14sp"/>
 
                     </LinearLayout>
@@ -122,7 +122,7 @@
 
                 <!-- 本地卡片 -->
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_3"
+                    android:id="@+id/card_local"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"
@@ -153,7 +153,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
-                            android:text="115"
+                            android:text="0"
                             android:textSize="14sp"/>
 
                     </LinearLayout>
@@ -161,7 +161,7 @@
 
                 <!-- 已购卡片 -->
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_4"
+                    android:id="@+id/card_might_like"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"
@@ -185,7 +185,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="频道"
+                            android:text="兴趣"
                             android:textSize="16sp"/>
 
                         <TextView
@@ -300,15 +300,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
-                    <androidx.recyclerview.widget.RecyclerView
+                    <com.guet.stu.banamusic.view.widget.NonScrollableRecyclerView
                         android:id="@+id/my_music_list"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
                         android:paddingHorizontal="10dp"
                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>

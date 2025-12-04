@@ -77,5 +77,13 @@
             android:layout_gravity="center_vertical"
             android:padding="8dp"
             android:src="@android:drawable/ic_media_play" />
+
+        <CheckBox
+            android:id="@+id/checkBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:padding="8dp"
+            android:visibility="gone"/>
     </LinearLayout>
 </LinearLayout>

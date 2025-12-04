@@ -179,9 +179,9 @@ class MusicPlayerFragment : Fragment() {
             onPrepared = {
                 // 播放状态变化会通过 onPlayingStateChangedListener 自动更新图标
             },
-            onError = { errorMessage ->
+            onError = {
                 // 播放状态变化会通过 onPlayingStateChangedListener 自动更新图标
-                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
+                // 静默处理错误，不显示toast
             }
         )
         // 初始状态：准备播放时根据当前状态显示图标

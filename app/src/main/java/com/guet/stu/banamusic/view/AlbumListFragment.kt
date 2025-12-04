@@ -45,8 +45,10 @@ class AlbumListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()                       // 初始化 RecyclerView
         observeViewModel()                        // 监听数据、加载状态和错误
-        binding.exmaple.visibility = View.GONE    // 暂时隐藏示例视图
         applyStatusBarSpacer(binding.statusBarSpace.root) // 调整沉浸式状态栏占位
+
+        // 根据榜单类型设置标题
+        setupBangTitle()
 
         // 设置返回按钮点击事件
         binding.btnBack.setOnClickListener {
@@ -92,6 +94,20 @@ class AlbumListFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = musicAdapter
         }
+    }
+
+    /**
+     * 根据榜单类型设置标题
+     */
+    private fun setupBangTitle() {
+        val title = when (viewModel.albumType) {
+            1 -> "原创榜"
+            2 -> "热歌榜"
+            3 -> "新歌榜"
+            4 -> "飙升榜"
+            else -> "榜"
+        }
+        binding.bang.text = title
     }
 
     private fun observeViewModel() {
