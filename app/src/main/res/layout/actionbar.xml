@@ -5,6 +5,7 @@
     android:layout_height="wrap_content"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
+    android:padding="5dp"
     android:background="@color/white">
 
     <!-- 左侧标题 -->
@@ -16,29 +17,40 @@
         android:layout_centerVertical="true"
         android:text="主页"
         android:textColor="@color/black"
-        android:textSize="54sp" />
+        android:textSize="32sp" />
 
-    <!-- 右侧用户名区域：将最右边的控件（user_name）靠右对齐 -->
-
-    <!-- 用户名靠右 -->
-    <TextView
-        android:id="@+id/user_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_centerVertical="true"
-        android:text="用户"
-        android:textSize="36sp"
-        android:textColor="@color/black" />
-
-    <!-- 头像在用户名左边 -->
+    <!-- 右侧图标 -->
     <ImageView
         android:id="@+id/iv_icon"
-        android:layout_width="68dp"
-        android:layout_height="68dp"
-        android:layout_toStartOf="@id/user_name"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
-        android:paddingEnd="8dp"
         android:src="@drawable/yonghu" />
+
+    <!-- 中间搜索框（作为点击入口，不在这里直接输入） -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_search"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_centerVertical="true"
+        android:layout_toEndOf="@id/tv_home"
+        android:layout_toStartOf="@id/iv_icon"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_search"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:hint="从最近播放中搜索..."
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:inputType="text"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:cursorVisible="false" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
 </RelativeLayout>

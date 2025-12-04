@@ -52,7 +52,7 @@ class AlbumListFragment : Fragment() {
 
         // 设置返回按钮点击事件
         binding.btnBack.setOnClickListener {
-            findNavController().navigate(R.id.mainFragment)
+            findNavController().popBackStack()
         }
 
         // 顺序播放：从第一首开始

@@ -6,14 +6,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context=".view.PlayListFragment">
+    tools:context=".view.HistorySelectActivity">
 
-    <!-- 顶部状态栏占位，使用 StatusBarUtils.applyStatusBarSpacer 调整高度 -->
-    <include
-        android:id="@+id/status_bar_space"
-        layout="@layout/view_status_bar_space" />
-
-    <!-- 简单顶部栏：返回 + 标题 -->
+    <!-- 顶部栏：返回 + 标题 + 确认 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
@@ -29,39 +24,26 @@
 
         <TextView
             android:id="@+id/tvTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="16dp"
-            android:text="歌单"
+            android:text="@string/add_from_history"
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <View
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/btnConfirm"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="10" />
-
-        <ImageView
-            android:id="@+id/btnAddMusic"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/addmusic" />
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-
-        <ImageView
-            android:id="@+id/btncheck"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/checkbox" />
+            android:text="@string/confirm"
+            android:textSize="16sp"
+            android:textColor="@android:color/black" />
     </LinearLayout>
 
-    <!-- 歌单歌曲列表 -->
+    <!-- 历史歌曲列表（复用歌单歌曲 Item 布局） -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvPlaylistSongs"
+        android:id="@+id/rvHistorySongs"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -70,3 +52,6 @@
         tools:listitem="@layout/album_item" />
 
 </LinearLayout>
+
+
+

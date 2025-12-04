@@ -93,4 +93,39 @@ class MusicPlayerFragmentViewModel(
         savedStateHandle[KEY_CURRENT_MUSIC] = nextMusic
         return nextMusic
     }
+
+    /**
+     * 随机播放一首（可选择是否排除当前正在播放的歌曲）。
+     */
+    fun playRandom(excludeCurrent: Boolean = false): Music? {
+        val list = _musicList.value ?: return null
+        if (list.isEmpty()) return null
+
+        val currentIdx = _currentIndex.value ?: -1
+        val indices = list.indices.toMutableList()
+        if (excludeCurrent && currentIdx in indices && indices.size > 1) {
+            indices.remove(currentIdx)
+        }
+        if (indices.isEmpty()) return null
+
+        val nextIndex = indices.random()
+        val nextMusic = list[nextIndex]
+        _currentIndex.value = nextIndex
+        savedStateHandle[KEY_CURRENT_INDEX] = nextIndex
+        savedStateHandle[KEY_CURRENT_MUSIC] = nextMusic
+        return nextMusic
+    }
+
+    /**
+     * 重复当前歌曲（单曲循环模式下调用）。
+     */
+    fun repeatCurrent(): Music? {
+        val list = _musicList.value ?: return null
+        val currentIdx = _currentIndex.value ?: -1
+        if (list.isEmpty() || currentIdx !in list.indices) return null
+
+        val music = list[currentIdx]
+        savedStateHandle[KEY_CURRENT_MUSIC] = music
+        return music
+    }
 }

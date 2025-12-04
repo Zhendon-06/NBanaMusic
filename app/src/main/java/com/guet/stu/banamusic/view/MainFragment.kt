@@ -51,6 +51,7 @@ class MainFragment : Fragment() {
         observeViewModel()
         applyStatusBarSpacer(binding.statusBarSpace.root)
         setJingBar()
+        setupSearchClick()
         
         // 如果数据已存在，直接使用；否则加载（避免重复请求）
         viewModel.loadLiveMusicIfNeeded()
@@ -65,6 +66,16 @@ class MainFragment : Fragment() {
         binding.music3.cardImage.setImageResource(R.drawable.xinge)
 /*        binding.music4.actionBarTitleName.text="飙升榜"*/
         binding.music4.cardImage.setImageResource(R.drawable.biaosheng)
+    }
+
+    /**
+     * 顶部搜索框点击后，跳转到 SearchPageFragment。
+     */
+    private fun setupSearchClick() {
+        // actionbar.xml 中的 et_search
+        binding.mianbar.etSearch.setOnClickListener {
+            findNavController().navigate(R.id.searchPageFragment)
+        }
     }
     private fun setupRecyclerViews() = with(binding) {
         recyclerLive.apply {

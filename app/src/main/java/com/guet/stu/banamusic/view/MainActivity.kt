@@ -1,5 +1,6 @@
 package com.guet.stu.banamusic.view
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -41,6 +42,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.guet.stu.banamusic.R
 import com.guet.stu.banamusic.databinding.ActivityMainBinding
+import com.guet.stu.banamusic.model.music.Music
 import com.guet.stu.banamusic.model.music.MusicPlay
 import com.guet.stu.banamusic.viewmodel.SharedMusicViewModel
 
@@ -55,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         isPlayingState.value = isPlaying
         coverUrlState.value = MusicPlay.getCurrentMusic()?.pic
     }
+    private var openedFromPlaylist: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +73,15 @@ class MainActivity : AppCompatActivity() {
         setupCenterComposeButton()
         observeSharedMusic()
         MusicPlay.addPlayingStateChangedListener(playingStateListener)
+
+        // 如果是从歌单详情页等入口带着“播放队列”跳转过来的，处理一次意图
+        handlePlayQueueIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handlePlayQueueIntent(intent)
     }
 
     override fun onDestroy() {
@@ -177,7 +189,40 @@ class MainActivity : AppCompatActivity() {
         navController.navigate(
             R.id.musicPlayerFragment,
             bundle,
-            navOptions { launchSingleTop = true }
+            navOptions {
+                launchSingleTop = true
+            }
+        )
+    }
+
+    /**
+     * 处理来自外部入口（如歌单详情页等）带来的“使用指定队列打开播放器”的意图。
+     */
+    private fun handlePlayQueueIntent(intent: Intent?) {
+        if (intent == null) return
+        openedFromPlaylist = intent.getBooleanExtra(EXTRA_FROM_PLAYLIST, false)
+        val queue: ArrayList<Music>? =
+            intent.getParcelableArrayListExtra(EXTRA_PLAY_QUEUE)
+        val current: Music? =
+            intent.getParcelableExtra(EXTRA_CURRENT_MUSIC)
+
+        if (queue.isNullOrEmpty() || current == null) return
+        if (!::navController.isInitialized) return
+
+        // 设置当前播放队列与当前歌曲
+        sharedMusicViewModel.setMusicList(queue)
+        sharedMusicViewModel.setCurrentMusic(current)
+
+        // 跳转到播放器 Fragment
+        val bundle = Bundle().apply {
+            putParcelable(MUSIC_ARG_KEY, current)
+        }
+        navController.navigate(
+            R.id.musicPlayerFragment,
+            bundle,
+            navOptions {
+                launchSingleTop = true
+            }
         )
     }
 
@@ -244,7 +289,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        if (openedFromPlaylist && ::navController.isInitialized &&
+            navController.currentDestination?.id == R.id.musicPlayerFragment
+        ) {
+            // 从歌单详情页打开播放器时，在播放器界面按返回键直接回到歌单，而不是主界面
+            finish()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
     companion object {
         private const val MUSIC_ARG_KEY = "music"
+        const val EXTRA_PLAY_QUEUE = "extra_play_queue"
+        const val EXTRA_CURRENT_MUSIC = "extra_current_music"
+        const val EXTRA_FROM_PLAYLIST = "extra_from_playlist"
     }
 }

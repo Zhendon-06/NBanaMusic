@@ -150,6 +150,7 @@
                             android:textSize="16sp"/>
 
                         <TextView
+                            android:id="@+id/local_size"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
@@ -185,10 +186,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="兴趣"
+                            android:text="猜你喜欢"
                             android:textSize="16sp"/>
 
                         <TextView
+                            android:id="@+id/might_like_size"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"

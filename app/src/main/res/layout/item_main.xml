@@ -50,6 +50,7 @@
                 android:id="@+id/music_item_song"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity=""
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="歌曲1"

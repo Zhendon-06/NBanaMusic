@@ -7,7 +7,8 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [Playlist::class, MusicEntity::class, PlaylistSongCrossRef::class],
-    version = 1
+    version = 2,
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -24,7 +25,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "banamusic.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // 开发阶段，如果 schema 有改动就直接重建数据库，避免崩溃
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { INSTANCE = it }
             }
         }
     }

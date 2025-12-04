@@ -5,7 +5,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
-import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -26,7 +25,11 @@ import com.guet.stu.banamusic.model.music.LyricLine
 import com.guet.stu.banamusic.network.LyricLoader
 import com.guet.stu.banamusic.util.applyStatusBarSpacer
 import com.guet.stu.banamusic.viewmodel.MusicPlayerFragmentViewModel
+import com.guet.stu.banamusic.viewmodel.PlaylistActionsViewModel
 import com.guet.stu.banamusic.viewmodel.SharedMusicViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
  * 全屏播放页：负责展示歌曲信息并控制 MediaPlayer。
@@ -36,6 +39,9 @@ class MusicPlayerFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: MusicPlayerFragmentViewModel by viewModels()
     private val sharedMusicViewModel: SharedMusicViewModel by activityViewModels()
+    private val playlistActionsViewModel: PlaylistActionsViewModel by activityViewModels {
+        PlaylistActionsViewModel.Factory(requireActivity().application)
+    }
     private val args: MusicPlayerFragmentArgs by navArgs()
     private var lyricsAdapter: LyricsAdapter? = null
     private var isLyricsVisible = false
@@ -45,6 +51,10 @@ class MusicPlayerFragment : Fragment() {
     private var isUserInteractingLyrics: Boolean = false
     // 最近一次触摸歌词列表的时间，用于判断何时恢复自动跟随
     private var lastLyricsTouchTime: Long = 0L
+    private var favoriteStateJob: Job? = null
+    private var isCurrentFavorite: Boolean = false
+    // 播放模式：0 顺序播放，1 随机播放，2 单曲循环
+    private var playMode: Int = 0
 
 
     override fun onCreateView(
@@ -66,6 +76,8 @@ class MusicPlayerFragment : Fragment() {
         binding.btnPlayPause.setOnClickListener { togglePlayback() }
         binding.btnPrev.setOnClickListener { playPrevious() }
         binding.btnNext.setOnClickListener { playNext() }
+        binding.btnLike.setOnClickListener { toggleFavorite() }
+        binding.btnMode.setOnClickListener { togglePlayMode() }
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -118,8 +130,11 @@ class MusicPlayerFragment : Fragment() {
      * 播放上一首
      */
     private fun playPrevious() {
-        val previousMusic = viewModel.playPrevious()
-        previousMusic?.let { music ->
+        val previousMusic = when (playMode) {
+            1 -> viewModel.playRandom(excludeCurrent = true)   // 随机模式
+            else -> viewModel.playPrevious()                   // 顺序 / 单曲循环：上一首按列表
+        }
+        previousMusic?.let {
             // 音乐切换会自动触发 observeViewModel 中的监听，从而调用 prepareAndPlay
         }
     }
@@ -128,8 +143,12 @@ class MusicPlayerFragment : Fragment() {
      * 播放下一首
      */
     private fun playNext() {
-        val nextMusic = viewModel.playNext()
-        nextMusic?.let { music ->
+        val nextMusic = when (playMode) {
+            1 -> viewModel.playRandom(excludeCurrent = true)   // 随机模式
+            2 -> viewModel.repeatCurrent()                     // 单曲循环
+            else -> viewModel.playNext()                       // 顺序播放
+        }
+        nextMusic?.let {
             // 音乐切换会自动触发 observeViewModel 中的监听，从而调用 prepareAndPlay
         }
     }
@@ -153,6 +172,7 @@ class MusicPlayerFragment : Fragment() {
                 }
                 // 同步当前播放的音乐到 SharedMusicViewModel，以便MainActivity更新musicbar
                 sharedMusicViewModel.setCurrentMusic(it)
+                observeFavoriteState(it)
             }
         }
     }
@@ -186,6 +206,7 @@ class MusicPlayerFragment : Fragment() {
         )
         // 初始状态：准备播放时根据当前状态显示图标
         updatePlayPauseIcon(MusicPlay.isPlaying)
+        playlistActionsViewModel.logHistory(music)
     }
     
     /**
@@ -218,12 +239,26 @@ class MusicPlayerFragment : Fragment() {
         binding.btnPlayPause.setImageResource(icon)
     }
 
+    /**
+     * 播放模式切换：顺序播放 -> 随机播放 -> 单曲循环。
+     */
+    private fun togglePlayMode() {
+        playMode = (playMode + 1) % 3
+        val iconRes = when (playMode) {
+            1 -> R.drawable.random_play
+            2 -> R.drawable.repeat_play
+            else -> R.drawable.sequential_play
+        }
+        binding.btnMode.setImageResource(iconRes)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         // 移除所有监听，但不停止播放
         MusicPlay.removeProgressUpdateListener()
         MusicPlay.removeCompletionListener()
         MusicPlay.removePlayingStateChangedListener()
+        favoriteStateJob?.cancel()
         lyricsAdapter = null
         _binding = null
     }
@@ -232,6 +267,27 @@ class MusicPlayerFragment : Fragment() {
         super.onResume()
         // 恢复时根据当前播放状态更新图标
         updatePlayPauseIcon(MusicPlay.isPlaying)
+    }
+
+    private fun observeFavoriteState(music: Music) {
+        favoriteStateJob?.cancel()
+        updateFavoriteIcon(false)
+        favoriteStateJob = viewLifecycleOwner.lifecycleScope.launch {
+            playlistActionsViewModel.observeFavorite(music.id).collectLatest { isFavorite ->
+                isCurrentFavorite = isFavorite
+                updateFavoriteIcon(isFavorite)
+            }
+        }
+    }
+
+    private fun updateFavoriteIcon(isFavorite: Boolean) {
+        val iconRes = if (isFavorite) R.drawable.favorited else R.drawable.favorite
+        binding.btnLike.setImageResource(iconRes)
+    }
+
+    private fun toggleFavorite() {
+        val music = viewModel.currentMusic.value ?: return
+        playlistActionsViewModel.toggleFavorite(music)
     }
     
     override fun onDestroy() {

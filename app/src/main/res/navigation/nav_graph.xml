@@ -31,7 +31,30 @@
     <fragment
         android:id="@+id/userFragment"
         android:name="com.guet.stu.banamusic.view.UserFragment"
-        android:label="我的" />
+        android:label="我的" >
+        <action
+            android:id="@+id/action_userFragment_to_playListFragment"
+            app:destination="@id/playListFragment" />
+    </fragment>
+    
+    <!-- 歌单详情 Fragment -->
+    <fragment
+        android:id="@+id/playListFragment"
+        android:name="com.guet.stu.banamusic.view.PlayListFragment"
+        android:label="歌单详情" >
+        <argument
+            android:name="playlistId"
+            app:argType="long" />
+        <argument
+            android:name="playlistName"
+            app:argType="string" />
+    </fragment>
+
+    <!-- 搜索 Fragment -->
+    <fragment
+        android:id="@+id/searchPageFragment"
+        android:name="com.guet.stu.banamusic.view.SearchPageFragment"
+        android:label="搜索" />
     
     <!-- 音乐播放器Fragment -->
     <fragment

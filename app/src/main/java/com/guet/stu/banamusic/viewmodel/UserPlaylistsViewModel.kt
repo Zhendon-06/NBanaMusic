@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.guet.stu.banamusic.model.music.AppDatabase
 import com.guet.stu.banamusic.model.music.Playlist
 import com.guet.stu.banamusic.model.music.PlaylistRepository
+import com.guet.stu.banamusic.model.music.SpecialPlaylist
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -24,14 +25,33 @@ class UserPlaylistsViewModel(
         PlaylistRepository(AppDatabase.getInstance(application))
     }
 
-    /** 所有歌单列表，供 UserFragment 观察并展示在 RecyclerView 中 */
+    init {
+        viewModelScope.launch {
+            repo.ensureSpecialPlaylists()
+        }
+    }
+
+    /** 用户自建歌单（不包含四个内置歌单） */
     val playlists: StateFlow<List<Playlist>> =
-        repo.getAllPlaylists()
+        repo.getUserPlaylists()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = emptyList()
             )
+
+    private fun specialCountFlow(type: SpecialPlaylist): StateFlow<Int> =
+        repo.getSpecialPlaylistCountFlow(type)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = 0
+            )
+
+    val collectCount: StateFlow<Int> = specialCountFlow(SpecialPlaylist.COLLECT)
+    val historyCount: StateFlow<Int> = specialCountFlow(SpecialPlaylist.HISTORY)
+    val localCount: StateFlow<Int> = specialCountFlow(SpecialPlaylist.LOCAL)
+    val mightLikeCount: StateFlow<Int> = specialCountFlow(SpecialPlaylist.MIGHT_LIKE)
 
     /** 新建歌单 */
     fun createPlaylist(name: String, onFinished: (() -> Unit)? = null) {
@@ -40,6 +60,10 @@ class UserPlaylistsViewModel(
             onFinished?.invoke()
         }
     }
+
+    fun specialPlaylistId(type: SpecialPlaylist): Long = type.id
+
+    fun specialPlaylistName(type: SpecialPlaylist): String = type.displayName
 
     class Factory(
         private val application: Application

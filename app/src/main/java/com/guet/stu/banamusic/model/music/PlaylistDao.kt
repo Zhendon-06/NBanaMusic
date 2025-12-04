@@ -16,6 +16,12 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists")
     fun getAllPlaylists(): Flow<List<Playlist>>
 
+    @Query("SELECT * FROM playlists WHERE playlistId NOT IN (:excludeIds)")
+    fun getPlaylistsExcluding(excludeIds: List<Long>): Flow<List<Playlist>>
+
+    @Query("SELECT * FROM playlists WHERE playlistId = :pid LIMIT 1")
+    suspend fun getPlaylistById(pid: Long): Playlist?
+
     @Delete
     suspend fun deletePlaylist(playlist: Playlist)
 

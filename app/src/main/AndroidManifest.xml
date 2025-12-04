@@ -16,10 +16,7 @@
         android:theme="@style/Theme.BanaMusic"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".view.PlayListActivity"
-            android:exported="false" />
-        <activity
-            android:name=".view.SearchPage"
+            android:name=".view.HistorySelectActivity"
             android:exported="false" />
         <activity
             android:name=".view.MainActivity"

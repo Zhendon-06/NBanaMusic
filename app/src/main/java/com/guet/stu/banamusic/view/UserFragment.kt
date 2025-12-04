@@ -5,19 +5,23 @@
  */
 package com.guet.stu.banamusic.view
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.guet.stu.banamusic.R
 import com.guet.stu.banamusic.adapter.PlaylistAdapter
 import com.guet.stu.banamusic.databinding.FragmentUserBinding
 import com.guet.stu.banamusic.databinding.DialogNewPlaylistBinding
+import com.guet.stu.banamusic.model.music.SpecialPlaylist
 import com.guet.stu.banamusic.util.applyStatusBarSpacer
 import com.guet.stu.banamusic.viewmodel.UserPlaylistsViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -48,12 +52,16 @@ class UserFragment : Fragment() {
         binding.mianbar.tvHome.text = "我的"
         applyStatusBarSpacer(binding.statusBarSpace.root)
 
-        setupPlaylistList()
-        observePlaylists()
-
-        binding.putmusic.setOnClickListener {
-            showCreatePlaylistDialog()
+        // 顶部搜索框点击：跳转到 SearchPageFragment
+        binding.mianbar.etSearch.setOnClickListener {
+            findNavController().navigate(R.id.searchPageFragment)
         }
+
+        setupPlaylistList()
+        setupTopCards()
+        observeViewModel()
+
+        binding.putmusic.setOnClickListener { showCreatePlaylistDialog() }
     }
     
     override fun onDestroyView() {
@@ -66,13 +74,12 @@ class UserFragment : Fragment() {
      */
     private fun setupPlaylistList() {
         playlistAdapter = PlaylistAdapter { playlist ->
-            // 点击歌单，跳转到 PlayListActivity 显示该歌单内的歌曲
-            val context = requireContext()
-            val intent = Intent(context, PlayListActivity::class.java).apply {
-                putExtra(PlayListActivity.EXTRA_PLAYLIST_ID, playlist.playlistId)
-                putExtra(PlayListActivity.EXTRA_PLAYLIST_NAME, playlist.name)
+            // 点击歌单，使用 NavController 跳转到 PlayListFragment 显示该歌单内的歌曲
+            val args = Bundle().apply {
+                putLong(PlayListFragment.ARG_PLAYLIST_ID, playlist.playlistId)
+                putString(PlayListFragment.ARG_PLAYLIST_NAME, playlist.name)
             }
-            startActivity(intent)
+            findNavController().navigate(R.id.playListFragment, args)
         }
         binding.myMusicList.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -80,13 +87,52 @@ class UserFragment : Fragment() {
         }
     }
 
+    private fun setupTopCards() = with(binding) {
+        cardCollect.setOnClickListener { openSpecialPlaylist(SpecialPlaylist.COLLECT) }
+        cardHistory.setOnClickListener { openSpecialPlaylist(SpecialPlaylist.HISTORY) }
+        cardLocal.setOnClickListener { openSpecialPlaylist(SpecialPlaylist.LOCAL) }
+        cardMightLike.setOnClickListener { openSpecialPlaylist(SpecialPlaylist.MIGHT_LIKE) }
+    }
+
+    private fun openSpecialPlaylist(type: SpecialPlaylist) {
+        val args = Bundle().apply {
+            putLong(PlayListFragment.ARG_PLAYLIST_ID, viewModel.specialPlaylistId(type))
+            putString(PlayListFragment.ARG_PLAYLIST_NAME, viewModel.specialPlaylistName(type))
+        }
+        findNavController().navigate(R.id.playListFragment, args)
+    }
+
     /**
-     * 监听数据库中歌单变化并刷新 UI
+     * 监听数据库中歌单及特殊歌单统计，并刷新 UI
      */
-    private fun observePlaylists() {
+    private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.playlists.collectLatest { list ->
-                playlistAdapter.submitList(list)
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.playlists.collectLatest { list ->
+                        playlistAdapter.submitList(list)
+                    }
+                }
+                launch {
+                    viewModel.collectCount.collectLatest {
+                        binding.loveSize.text = it.toString()
+                    }
+                }
+                launch {
+                    viewModel.historyCount.collectLatest {
+                        binding.historySize.text = it.toString()
+                    }
+                }
+                launch {
+                    viewModel.localCount.collectLatest {
+                        binding.localSize.text = it.toString()
+                    }
+                }
+                launch {
+                    viewModel.mightLikeCount.collectLatest {
+                        binding.mightLikeSize.text = it.toString()
+                    }
+                }
             }
         }
     }
