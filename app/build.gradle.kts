@@ -84,6 +84,9 @@ dependencies {
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.palette:palette-ktx:1.0.0")
+    
+    // AndroidX Media 库（用于 MediaSessionCompat、PlaybackStateCompat 等）
+    implementation("androidx.media:media:1.7.0")
 
     // LiveData dependencies
     implementation(libs.androidx.lifecycle.livedata)

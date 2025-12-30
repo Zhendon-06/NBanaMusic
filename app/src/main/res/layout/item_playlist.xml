@@ -11,16 +11,7 @@
     android:layout_height="match_parent"
     android:gravity="center_vertical"
     android:orientation="horizontal">
-    <androidx.cardview.widget.CardView
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="center_vertical"
-        android:layout_marginStart="5dp"
-        app:cardBackgroundColor="@android:color/white"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="4dp"
-        app:cardPreventCornerOverlap="true"
-        app:contentPadding="0dp">
+
 
         <ImageView
             android:layout_width="48dp"
@@ -28,9 +19,7 @@
             android:clipToOutline="true"
             android:outlineProvider="bounds"
             android:scaleType="centerCrop"
-            android:src="@drawable/fm" />
-
-    </androidx.cardview.widget.CardView>
+            android:src="@drawable/playlist" />
 
     <TextView
         android:id="@+id/tvPlaylistName"

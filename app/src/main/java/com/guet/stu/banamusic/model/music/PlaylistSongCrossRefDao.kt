@@ -26,4 +26,7 @@ interface PlaylistSongCrossRefDao {
 
     @Query("SELECT COUNT(*) FROM playlist_song_cross_ref WHERE playlistId = :pid")
     fun playlistSongCountFlow(pid: Long): Flow<Int>
+
+    @Query("DELETE FROM playlist_song_cross_ref WHERE playlistId = :pid")
+    suspend fun deleteAllSongsFromPlaylist(pid: Long)
 }

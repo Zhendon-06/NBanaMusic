@@ -303,6 +303,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
                     <com.guet.stu.banamusic.view.widget.NonScrollableRecyclerView
+
                         android:id="@+id/my_music_list"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

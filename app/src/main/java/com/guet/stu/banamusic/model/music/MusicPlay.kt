@@ -1,7 +1,9 @@
 package com.guet.stu.banamusic.model.music
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -12,6 +14,17 @@ import java.util.concurrent.atomic.AtomicInteger
  * - 使用协程更新进度，避免 UI 切换导致播放错乱
  */
 object MusicPlay {
+
+    /** Application Context，用于播放本地音乐的 content URI */
+    private var appContext: Context? = null
+
+    /**
+     * 初始化 Application Context
+     * 应在 Application.onCreate() 中调用
+     */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
 
     /** 当前是否正在播放 */
     private var _isPlaying: Boolean = false
@@ -127,7 +140,23 @@ object MusicPlay {
                 // 创建 MediaPlayer（IO 线程）
                 val player = withContext(Dispatchers.IO) {
                     MediaPlayer().apply {
-
+                        /**
+                        new MediaPlayer()
+                        ↓
+                        setAudioAttributes()
+                        ↓
+                        setDataSource()设定播放源
+                        ↓
+                        prepare() / prepareAsync()
+                        ↓
+                        start()
+                        ↓
+                        pause() / seekTo()
+                        ↓
+                        stop()
+                        ↓
+                        release()
+                         **/
                         // 设置音频属性
                         setAudioAttributes(
                             AudioAttributes.Builder()
@@ -136,8 +165,21 @@ object MusicPlay {
                                 .build()
                         )
 
-                        // 设置音乐 URL
-                        setDataSource(music.url)
+                        // 设置音乐数据源
+                        // 如果是 content URI，使用 setDataSource(Context, Uri) 方法
+                        val context = appContext
+                        if (music.url.startsWith("content://") && context != null) {
+                            try {
+                                val uri = Uri.parse(music.url)
+                                setDataSource(context, uri)
+                            } catch (e: Exception) {
+                                // 如果解析失败，回退到字符串方式
+                                setDataSource(music.url)
+                            }
+                        } else {
+                            // 普通 URL 或文件路径
+                            setDataSource(music.url)
+                        }
 
                         // 准备完成回调
                         setOnPreparedListener {

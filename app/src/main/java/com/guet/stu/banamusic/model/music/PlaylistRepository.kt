@@ -76,4 +76,32 @@ class PlaylistRepository(private val db: AppDatabase) {
             true
         }
     }
+
+    /**
+     * 清空并重新设置本地音乐歌单
+     * @param musicList 要添加的音乐列表
+     */
+    suspend fun setLocalMusicPlaylist(musicList: List<Music>) {
+        val pid = SpecialPlaylist.LOCAL.id
+        // 先清空现有歌曲关联
+        db.playlistSongCrossRefDao().deleteAllSongsFromPlaylist(pid)
+        // 添加新歌曲
+        musicList.forEach { music ->
+            addSongToPlaylist(pid, music)
+        }
+    }
+
+    /**
+     * 批量添加音乐到歌单（如果不存在则添加）
+     * @param pid 歌单ID
+     * @param musicList 要添加的音乐列表
+     */
+    suspend fun addSongsToPlaylistIfNotExists(pid: Long, musicList: List<Music>) {
+        musicList.forEach { music ->
+            val exists = db.playlistSongCrossRefDao().isSongInPlaylist(pid, music.id)
+            if (!exists) {
+                addSongToPlaylist(pid, music)
+            }
+        }
+    }
 }
