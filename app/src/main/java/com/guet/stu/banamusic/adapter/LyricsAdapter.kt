@@ -10,10 +10,10 @@ import com.guet.stu.banamusic.R
 import com.guet.stu.banamusic.model.music.LyricLine
 
 /**
- * 简单的歌词适配器，点击任意一行可触发外部回调（用于切换回唱片视图）。
+ * 歌词适配器，支持高亮显示、平滑滚动和点击定位
  */
 class LyricsAdapter(
-    private val onLineClick: (() -> Unit)? = null
+    private val onLineClick: ((line: LyricLine, position: Int) -> Unit)? = null
 ) : RecyclerView.Adapter<LyricsAdapter.LyricViewHolder>() {
 
     private val items = mutableListOf<LyricLine>()
@@ -52,7 +52,7 @@ class LyricsAdapter(
         val isActive = position == currentIndex
         holder.bind(line, isActive)
         holder.itemView.setOnClickListener {
-            onLineClick?.invoke()
+            onLineClick?.invoke(line, position)
         }
     }
 
@@ -60,14 +60,22 @@ class LyricsAdapter(
 
     class LyricViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textView: TextView = itemView.findViewById(R.id.tv_lyric_line)
-        private val defaultColor: Int = textView.currentTextColor
-        private val highlightColor: Int = Color.parseColor("#FF69B4") // 粉色
+        private val defaultColor: Int = Color.parseColor("#888888") // 灰色
+        private val highlightColor: Int = Color.parseColor("#DB7093") // 粉色
+        private val defaultSize: Float = 16f
+        private val highlightSize: Float = 20f
 
         fun bind(line: LyricLine, isActive: Boolean) {
             textView.text = line.text
-            textView.setTextColor(if (isActive) highlightColor else defaultColor)
+            if (isActive) {
+                textView.setTextColor(highlightColor)
+                textView.textSize = highlightSize
+                textView.setTypeface(textView.typeface, android.graphics.Typeface.BOLD)
+            } else {
+                textView.setTextColor(defaultColor)
+                textView.textSize = defaultSize
+                textView.setTypeface(textView.typeface, android.graphics.Typeface.NORMAL)
+            }
         }
     }
 }
-
-

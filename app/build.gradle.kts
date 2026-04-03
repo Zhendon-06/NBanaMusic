@@ -57,6 +57,8 @@ dependencies {
     implementation(libs.converter.gson)
 // 必选：Room 运行时核心
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
 
     // 必选：KSP 注解处理（编译时生成代码）
     ksp(libs.androidx.room.compiler.v280)

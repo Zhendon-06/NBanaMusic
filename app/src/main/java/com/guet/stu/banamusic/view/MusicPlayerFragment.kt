@@ -297,7 +297,15 @@ class MusicPlayerFragment : Fragment() {
     }
 
     private fun setupLyricsView() {
-        val adapter = LyricsAdapter(onLineClick = { toggleDiscLyricsView() })
+        val adapter = LyricsAdapter(onLineClick = { line, position ->
+            // 点击歌词行跳转到对应时间
+            MusicPlay.seekTo(line.timeMs)
+            // 高亮点击的歌词行
+            currentLyricIndex = position
+            lyricsAdapter?.updateCurrentIndex(position)
+            // 滚动到点击的歌词行
+            scrollToCurrentLyric()
+        })
         lyricsAdapter = adapter
         binding.layoutLyrics.rvLyrics.apply {
             layoutManager = LinearLayoutManager(requireContext())

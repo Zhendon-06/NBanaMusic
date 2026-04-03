@@ -9,16 +9,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import coil.Coil
 import coil.request.ImageRequest
 import com.guet.stu.banamusic.R
@@ -29,23 +25,21 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 音乐播放前台服务
- * - 使用 MediaPlayer 进行音频播放
+ * - 仅负责显示媒体通知和控制回调
+ * - 实际播放逻辑由 MusicPlay 管理
  * - 集成 MediaSession 与系统媒体控制器
- * - 显示媒体通知卡片
  */
 class MusicPlaybackService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "music_playback_channel"
         private const val NOTIFICATION_ID = 1
-        private const val ACTION_PLAY_PAUSE = "com.guet.stu.banamusic.PLAY_PAUSE"
-        private const val ACTION_STOP = "com.guet.stu.banamusic.STOP"
-        private const val ACTION_NEXT = "com.guet.stu.banamusic.NEXT"
-        private const val ACTION_PREVIOUS = "com.guet.stu.banamusic.PREVIOUS"
+        const val ACTION_PLAY_PAUSE = "com.guet.stu.banamusic.PLAY_PAUSE"
+        const val ACTION_STOP = "com.guet.stu.banamusic.STOP"
+        const val ACTION_NEXT = "com.guet.stu.banamusic.NEXT"
+        const val ACTION_PREVIOUS = "com.guet.stu.banamusic.PREVIOUS"
     }
 
-    private val binder = LocalBinder()
-    private var mediaPlayer: MediaPlayer? = null
     private var mediaSession: MediaSessionCompat? = null
     private var notificationManager: NotificationManager? = null
 
@@ -56,33 +50,33 @@ class MusicPlaybackService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var progressJob: Job? = null
-    
+
     // 专辑封面缓存
     private var cachedAlbumArt: Bitmap? = null
     private var cachedAlbumArtUrl: String? = null
-    
-    // 上次更新通知的时间戳，用于限制更新频率
+
+    // 上次更新通知的时间戳
     private var lastNotificationUpdateTime: Long = 0
-    private val NOTIFICATION_UPDATE_INTERVAL = 1000L // 通知最多每 1 秒更新一次
-    
-    // seekTo 相关标志，用于防止进度条闪回
-    private var isSeeking: Boolean = false
-    private var seekTargetPosition: Int = 0
-    private var seekStartTime: Long = 0
+    private val NOTIFICATION_UPDATE_INTERVAL = 1000L
 
-    // 播放状态变化回调
-    private var onPlaybackStateChanged: ((isPlaying: Boolean) -> Unit)? = null
-    private var onProgressUpdate: ((currentPosition: Int, duration: Int) -> Unit)? = null
+    // 播放控制回调
+    private var onPlayPause: (() -> Unit)? = null
+    private var onPlayNext: (() -> Unit)? = null
+    private var onPlayPrevious: (() -> Unit)? = null
+    private var onStop: (() -> Unit)? = null
+    private var onSeek: ((position: Int) -> Unit)? = null
 
-    inner class LocalBinder : Binder() {
+    inner class LocalBinder : android.os.Binder() {
         fun getService(): MusicPlaybackService = this@MusicPlaybackService
     }
+
+    private val binder = LocalBinder()
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         initializeMediaSession()
-        // 立即启动前台服务，避免崩溃（必须在 5 秒内调用 startForeground）
+        // 立即启动前台服务
         startForeground(NOTIFICATION_ID, createEmptyNotification())
     }
 
@@ -92,21 +86,16 @@ class MusicPlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PLAY_PAUSE -> togglePlayback()
-            ACTION_STOP -> stopPlayback()
-            ACTION_NEXT -> playNext()
-            ACTION_PREVIOUS -> playPrevious()
-        }
-        // 确保前台服务已启动
-        if (currentMusic == null) {
-            startForeground(NOTIFICATION_ID, createEmptyNotification())
+            ACTION_PLAY_PAUSE -> onPlayPause?.invoke()
+            ACTION_STOP -> onStop?.invoke()
+            ACTION_NEXT -> onPlayNext?.invoke()
+            ACTION_PREVIOUS -> onPlayPrevious?.invoke()
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        releaseMediaPlayer()
         mediaSession?.release()
         serviceScope.cancel()
     }
@@ -145,27 +134,27 @@ class MusicPlaybackService : Service() {
         mediaSession = MediaSessionCompat(this, "MusicPlaybackService").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
-                    resumePlayback()
+                    onPlayPause?.invoke()
                 }
 
                 override fun onPause() {
-                    pausePlayback()
+                    onPlayPause?.invoke()
                 }
 
                 override fun onStop() {
-                    stopPlayback()
+                    onStop?.invoke()
                 }
 
                 override fun onSkipToNext() {
-                    playNext()
+                    onPlayNext?.invoke()
                 }
 
                 override fun onSkipToPrevious() {
-                    playPrevious()
+                    onPlayPrevious?.invoke()
                 }
 
                 override fun onSeekTo(pos: Long) {
-                    seekTo(pos.toInt())
+                    onSeek?.invoke(pos.toInt())
                 }
             })
 
@@ -179,222 +168,41 @@ class MusicPlaybackService : Service() {
     }
 
     /**
-     * 播放音乐
+     * 更新播放状态（由 MusicPlay 调用）
      */
-    fun play(music: Music) {
-        serviceScope.launch {
-            try {
-                // 释放旧播放器
-                releaseMediaPlayer()
+    fun updatePlaybackState(music: Music?, playing: Boolean, position: Int, totalDuration: Int) {
+        currentMusic = music
+        isPlaying = playing
+        currentPosition.set(position)
+        duration.set(totalDuration)
 
-                currentMusic = music
-                // 清除旧的专辑封面缓存
-                cachedAlbumArt = null
-                cachedAlbumArtUrl = null
-                updateMetadata(music)
-
-                // 创建 MediaPlayer
-                val player = withContext(Dispatchers.IO) {
-                    MediaPlayer().apply {
-                        setAudioAttributes(
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_MEDIA)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                .build()
-                        )
-
-                        // 设置音乐数据源
-                        // 如果是 content URI，使用 setDataSource(Context, Uri) 方法
-                        if (music.url.startsWith("content://")) {
-                            try {
-                                val uri = android.net.Uri.parse(music.url)
-                                setDataSource(this@MusicPlaybackService, uri)
-                            } catch (e: Exception) {
-                                // 如果解析失败，回退到字符串方式
-                                setDataSource(music.url)
-                            }
-                        } else {
-                            // 普通 URL 或文件路径
-                            setDataSource(music.url)
-                        }
-
-                        setOnPreparedListener {
-                            this@MusicPlaybackService.isPlaying = true
-                            it.start()
-                            this@MusicPlaybackService.duration.set(it.duration)
-                            // 更新 MediaMetadata（包含时长信息）
-                            currentMusic?.let { music ->
-                                this@MusicPlaybackService.updateMetadata(music)
-                            }
-                            this@MusicPlaybackService.updatePlaybackState()
-                            this@MusicPlaybackService.startProgressUpdate()
-                            this@MusicPlaybackService.onPlaybackStateChanged?.invoke(true)
-                        }
-
-                        setOnCompletionListener {
-                            this@MusicPlaybackService.isPlaying = false
-                            this@MusicPlaybackService.currentPosition.set(0)
-                            this@MusicPlaybackService.stopProgressUpdate()
-                            this@MusicPlaybackService.updatePlaybackState()
-                            this@MusicPlaybackService.onPlaybackStateChanged?.invoke(false)
-                        }
-
-                        setOnErrorListener { _, what, extra ->
-                            this@MusicPlaybackService.isPlaying = false
-                            this@MusicPlaybackService.stopProgressUpdate()
-                            this@MusicPlaybackService.updatePlaybackState()
-                            this@MusicPlaybackService.onPlaybackStateChanged?.invoke(false)
-                            true
-                        }
-
-                        prepareAsync()
-                    }
-                }
-
-                mediaPlayer = player
-                startForeground(NOTIFICATION_ID, createNotification())
-
-            } catch (e: Exception) {
-                isPlaying = false
-                updatePlaybackState()
+        music?.let {
+            updateMetadata(it)
+            // 异步加载封面
+            if (cachedAlbumArtUrl != it.pic) {
+                loadAlbumArtAsync(it.pic)
             }
         }
+
+        updateMediaSessionState()
+        updateNotification()
     }
 
     /**
-     * 暂停播放
+     * 设置控制回调
      */
-    fun pausePlayback() {
-        serviceScope.launch {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.pause()
-                    isPlaying = false
-                    stopProgressUpdate()
-                    updatePlaybackState()
-                    onPlaybackStateChanged?.invoke(false)
-                }
-            }
-        }
-    }
-
-    /**
-     * 恢复播放
-     */
-    fun resumePlayback() {
-        serviceScope.launch {
-            mediaPlayer?.let {
-                if (!it.isPlaying && currentPosition.get() < duration.get()) {
-                    it.start()
-                    isPlaying = true
-                    updatePlaybackState()
-                    startProgressUpdate()
-                    onPlaybackStateChanged?.invoke(true)
-                }
-            }
-        }
-    }
-
-    /**
-     * 切换播放/暂停
-     */
-    fun togglePlayback() {
-        if (isPlaying) {
-            pausePlayback()
-        } else {
-            resumePlayback()
-        }
-    }
-
-    /**
-     * 停止播放
-     */
-    fun stopPlayback() {
-        serviceScope.launch {
-            isPlaying = false
-            stopProgressUpdate()
-            releaseMediaPlayer()
-            currentMusic = null
-            currentPosition.set(0)
-            duration.set(0)
-            updatePlaybackState()
-            stopForeground(true)
-            stopSelf()
-            onPlaybackStateChanged?.invoke(false)
-        }
-    }
-
-    /**
-     * 跳转到指定位置
-     */
-    fun seekTo(position: Int) {
-        serviceScope.launch {
-            mediaPlayer?.let {
-                try {
-                    // 设置 seekTo 标志，防止进度更新循环读取到错误位置
-                    isSeeking = true
-                    seekTargetPosition = position
-                    seekStartTime = System.currentTimeMillis()
-                    
-                    it.seekTo(position)
-                    currentPosition.set(position)
-                    onProgressUpdate?.invoke(position, duration.get())
-                    
-                    // 立即更新 MediaSession 的 PlaybackState 并强制更新通知
-                    // MIUI 系统需要强制刷新通知才能正确显示进度条位置
-                    withContext(Dispatchers.Main) {
-                        // 先更新 MediaSession
-                        updatePlaybackStateOnly()
-                        // 强制更新通知，确保进度条位置立即刷新
-                        notificationManager?.notify(NOTIFICATION_ID, createNotification())
-                        lastNotificationUpdateTime = System.currentTimeMillis()
-                    }
-                    
-                    // 等待一小段时间，让 MediaPlayer 完成跳转
-                    delay(100)
-                    
-                    // 检查 MediaPlayer 的实际位置是否接近目标位置
-                    var actualPos = it.currentPosition
-                    var retryCount = 0
-                    while (Math.abs(actualPos - position) > 500 && retryCount < 5) {
-                        delay(50)
-                        actualPos = it.currentPosition
-                        retryCount++
-                    }
-                    
-                    // 更新到实际位置
-                    currentPosition.set(actualPos)
-                    
-                    // 清除 seekTo 标志
-                    isSeeking = false
-                    
-                    // 如果正在播放，确保进度更新循环继续运行
-                    if (isPlaying) {
-                        // 进度更新循环应该已经在运行，但确保它继续
-                        // 如果因为某种原因停止了，重新启动
-                        if (progressJob?.isActive != true) {
-                            startProgressUpdate()
-                        }
-                    }
-                } catch (_: Exception) {
-                    isSeeking = false
-                }
-            }
-        }
-    }
-
-    /**
-     * 播放下一首（需要外部实现播放列表逻辑）
-     */
-    private fun playNext() {
-        // TODO: 实现播放下一首逻辑
-    }
-
-    /**
-     * 播放上一首（需要外部实现播放列表逻辑）
-     */
-    private fun playPrevious() {
-        // TODO: 实现播放上一首逻辑
+    fun setControlCallbacks(
+        playPause: () -> Unit,
+        next: () -> Unit,
+        previous: () -> Unit,
+        stop: () -> Unit,
+        seek: (position: Int) -> Unit
+    ) {
+        onPlayPause = playPause
+        onPlayNext = next
+        onPlayPrevious = previous
+        onStop = stop
+        onSeek = seek
     }
 
     /**
@@ -412,28 +220,19 @@ class MusicPlaybackService : Service() {
     }
 
     /**
-     * 只更新 MediaSession 的 PlaybackState（不更新通知）
-     * 用于进度更新，避免频繁更新通知
+     * 更新 MediaSession 播放状态
      */
-    private fun updatePlaybackStateOnly() {
+    private fun updateMediaSessionState() {
         val state = if (isPlaying) {
             PlaybackStateCompat.STATE_PLAYING
         } else {
             PlaybackStateCompat.STATE_PAUSED
         }
 
-        val currentPos = currentPosition.get().toLong()
-        val totalDuration = duration.get().toLong()
-        
-        val playbackSpeed = if (isPlaying && totalDuration > 0) 1.0f else 0.0f
+        val playbackSpeed = if (isPlaying) 1.0f else 0.0f
 
         val playbackState = PlaybackStateCompat.Builder()
-            .setState(
-                state,
-                currentPos,
-                playbackSpeed,
-                System.currentTimeMillis()
-            )
+            .setState(state, currentPosition.get().toLong(), playbackSpeed)
             .setActions(
                 PlaybackStateCompat.ACTION_PLAY or
                         PlaybackStateCompat.ACTION_PAUSE or
@@ -442,53 +241,16 @@ class MusicPlaybackService : Service() {
                         PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
                         PlaybackStateCompat.ACTION_SEEK_TO
             )
-            .setBufferedPosition(totalDuration)
+            .setBufferedPosition(duration.get().toLong())
             .build()
 
         mediaSession?.setPlaybackState(playbackState)
-        // 不更新通知，让 MediaStyle 自动从 MediaSession 获取进度
     }
 
     /**
-     * 更新播放状态并更新通知
-     * 用于状态变化时（播放/暂停/切换歌曲等）
+     * 更新通知
      */
-    private fun updatePlaybackState() {
-        val state = if (isPlaying) {
-            PlaybackStateCompat.STATE_PLAYING
-        } else {
-            PlaybackStateCompat.STATE_PAUSED
-        }
-
-        val currentPos = currentPosition.get().toLong()
-        val totalDuration = duration.get().toLong()
-        
-        // 计算播放速度（播放时为 1.0，暂停时为 0.0）
-        val playbackSpeed = if (isPlaying && totalDuration > 0) 1.0f else 0.0f
-
-        val playbackState = PlaybackStateCompat.Builder()
-            .setState(
-                state,
-                currentPos,
-                playbackSpeed,
-                System.currentTimeMillis()
-            )
-            .setActions(
-                PlaybackStateCompat.ACTION_PLAY or
-                        PlaybackStateCompat.ACTION_PAUSE or
-                        PlaybackStateCompat.ACTION_STOP or
-                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                        PlaybackStateCompat.ACTION_SEEK_TO
-            )
-            .setBufferedPosition(totalDuration) // 设置缓冲位置为总时长，表示已完全加载
-            .setActiveQueueItemId(0) // 设置活动队列项 ID
-            .build()
-
-        mediaSession?.setPlaybackState(playbackState)
-        
-        // MediaStyle 通知会自动从 MediaSession 获取进度信息
-        // 不需要频繁更新通知，只在状态变化或间隔足够长时更新
+    private fun updateNotification() {
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastNotificationUpdateTime >= NOTIFICATION_UPDATE_INTERVAL) {
             notificationManager?.notify(NOTIFICATION_ID, createNotification())
@@ -501,61 +263,18 @@ class MusicPlaybackService : Service() {
      */
     private fun createNotification(): Notification {
         val music = currentMusic ?: return createEmptyNotification()
-
-        val sessionToken = mediaSession?.sessionToken
-            ?: return createEmptyNotification()
+        val sessionToken = mediaSession?.sessionToken ?: return createEmptyNotification()
 
         val mainIntent = Intent(this, MainActivity::class.java)
         val mainPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            mainIntent,
+            this, 0, mainIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // 使用缓存的专辑封面，如果没有则使用默认图标（异步加载后会更新）
-        val largeIcon = if (cachedAlbumArtUrl == music.pic && cachedAlbumArt != null) {
-            cachedAlbumArt
-        } else {
-            BitmapFactory.decodeResource(resources, R.drawable.music)
-        }
-        
-        // 异步加载专辑封面（如果 URL 变化了）
-        if (cachedAlbumArtUrl != music.pic) {
-            loadAlbumArtAsync(music.pic)
-        }
+        val largeIcon = cachedAlbumArt ?: BitmapFactory.decodeResource(resources, R.drawable.music)
 
-        val playPauseAction = if (isPlaying) {
-            NotificationCompat.Action(
-                R.drawable.ic_pause,
-                "暂停",
-                createPendingIntent(ACTION_PLAY_PAUSE)
-            )
-        } else {
-            NotificationCompat.Action(
-                R.drawable.play,
-                "播放",
-                createPendingIntent(ACTION_PLAY_PAUSE)
-            )
-        }
-
-        val stopAction = NotificationCompat.Action(
-            android.R.drawable.ic_menu_close_clear_cancel,
-            "停止",
-            createPendingIntent(ACTION_STOP)
-        )
-
-        val nextAction = NotificationCompat.Action(
-            android.R.drawable.ic_media_next,
-            "下一首",
-            createPendingIntent(ACTION_NEXT)
-        )
-
-        val previousAction = NotificationCompat.Action(
-            android.R.drawable.ic_media_previous,
-            "上一首",
-            createPendingIntent(ACTION_PREVIOUS)
-        )
+        val playPauseIcon = if (isPlaying) R.drawable.ic_pause else R.drawable.play
+        val playPauseTitle = if (isPlaying) "暂停" else "播放"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(music.song)
@@ -568,11 +287,12 @@ class MusicPlaybackService : Service() {
                     .setShowActionsInCompactView(0, 1, 2)
                     .setMediaSession(sessionToken)
                     .setShowCancelButton(true)
+                    .setCancelButtonIntent(createPendingIntent(ACTION_STOP, 4))
             )
-            .addAction(previousAction)
-            .addAction(playPauseAction)
-            .addAction(stopAction)
-            .addAction(nextAction)
+            .addAction(createAction(android.R.drawable.ic_media_previous, "上一首", ACTION_PREVIOUS, 0))
+            .addAction(createAction(playPauseIcon, playPauseTitle, ACTION_PLAY_PAUSE, 1))
+            .addAction(createAction(android.R.drawable.ic_media_next, "下一首", ACTION_NEXT, 2))
+            .addAction(createAction(android.R.drawable.ic_menu_close_clear_cancel, "停止", ACTION_STOP, 3))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
@@ -580,12 +300,33 @@ class MusicPlaybackService : Service() {
     }
 
     /**
-     * 异步加载专辑封面图片（不阻塞线程）
+     * 创建通知动作
+     */
+    private fun createAction(icon: Int, title: String, action: String, requestCode: Int): NotificationCompat.Action {
+        return NotificationCompat.Action(icon, title, createPendingIntent(action, requestCode))
+    }
+
+    /**
+     * 创建 PendingIntent
+     */
+    private fun createPendingIntent(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(this, MusicPlaybackService::class.java).apply {
+            this.action = action
+        }
+        return PendingIntent.getService(
+            this, requestCode, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    /**
+     * 异步加载专辑封面
      */
     private fun loadAlbumArtAsync(url: String?) {
         if (url.isNullOrEmpty()) {
             cachedAlbumArt = BitmapFactory.decodeResource(resources, R.drawable.music)
             cachedAlbumArtUrl = url
+            updateNotification()
             return
         }
 
@@ -594,49 +335,57 @@ class MusicPlaybackService : Service() {
             return
         }
 
+        // 立即标记为正在加载，防止重复加载
+        cachedAlbumArtUrl = url
+
         serviceScope.launch(Dispatchers.IO) {
             try {
+                // 使用 Coil 加载图片
                 val imageLoader = Coil.imageLoader(this@MusicPlaybackService)
                 val request = ImageRequest.Builder(this@MusicPlaybackService)
                     .data(url)
-                    .size(256, 256) // 通知大图标推荐尺寸
+                    .size(256, 256)
+                    .allowHardware(false) // 通知栏不支持硬件加速的 Bitmap
                     .build()
-                
-                val drawable = imageLoader.execute(request).drawable
-                
-                // 将 Drawable 转换为 Bitmap
-                val bitmap = if (drawable != null) {
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth.coerceAtLeast(1),
-                        drawable.intrinsicHeight.coerceAtLeast(1),
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    bitmap
+
+                val result = imageLoader.execute(request)
+
+                if (result is coil.request.SuccessResult) {
+                    val drawable = result.drawable
+                    val bitmap = if (drawable != null) {
+                        // 创建可变的 Bitmap
+                        val width = drawable.intrinsicWidth.coerceAtLeast(1)
+                        val height = drawable.intrinsicHeight.coerceAtLeast(1)
+                        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        val canvas = Canvas(bmp)
+                        drawable.setBounds(0, 0, width, height)
+                        drawable.draw(canvas)
+                        bmp
+                    } else {
+                        BitmapFactory.decodeResource(resources, R.drawable.music)
+                    }
+                    cachedAlbumArt = bitmap
                 } else {
-                    BitmapFactory.decodeResource(resources, R.drawable.music)
+                    // 加载失败使用默认图标
+                    cachedAlbumArt = BitmapFactory.decodeResource(resources, R.drawable.music)
                 }
-                
-                // 更新缓存并刷新通知
-                cachedAlbumArt = bitmap
-                cachedAlbumArtUrl = url
-                
+
                 // 在主线程更新通知
                 withContext(Dispatchers.Main) {
                     notificationManager?.notify(NOTIFICATION_ID, createNotification())
                 }
             } catch (e: Exception) {
-                // 加载失败时使用默认图标
+                e.printStackTrace()
                 cachedAlbumArt = BitmapFactory.decodeResource(resources, R.drawable.music)
-                cachedAlbumArtUrl = url
+                withContext(Dispatchers.Main) {
+                    notificationManager?.notify(NOTIFICATION_ID, createNotification())
+                }
             }
         }
     }
 
     /**
-     * 创建空通知（当没有音乐时）
+     * 创建空通知
      */
     private fun createEmptyNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -645,99 +394,4 @@ class MusicPlaybackService : Service() {
             .setSmallIcon(R.drawable.appicon)
             .build()
     }
-
-    /**
-     * 创建 PendingIntent
-     */
-    private fun createPendingIntent(action: String): PendingIntent {
-        val intent = Intent(this, MusicPlaybackService::class.java).apply {
-            this.action = action
-        }
-        return PendingIntent.getService(
-            this,
-            action.hashCode(),
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-    }
-
-    /**
-     * 开始更新进度
-     */
-    private fun startProgressUpdate() {
-        stopProgressUpdate()
-
-        progressJob = serviceScope.launch {
-            while (isActive && mediaPlayer != null && isPlaying) {
-                mediaPlayer?.let {
-                    try {
-                        val pos = it.currentPosition
-                        val dur = it.duration
-                        
-                        // 如果正在 seekTo，检查位置是否合理
-                        if (isSeeking) {
-                            val timeSinceSeek = System.currentTimeMillis() - seekStartTime
-                            // 如果 seekTo 后位置突然变小很多，可能是 seekTo 还没完成，跳过这次更新
-                            if (timeSinceSeek < 300 && pos < seekTargetPosition - 1000) {
-                                delay(200)
-                                continue
-                            }
-                            // 如果位置接近目标位置，清除 seekTo 标志
-                            if (Math.abs(pos - seekTargetPosition) < 500 || timeSinceSeek > 500) {
-                                isSeeking = false
-                            }
-                        }
-
-                        currentPosition.set(pos)
-                        if (dur > 0) duration.set(dur)
-
-                        onProgressUpdate?.invoke(pos, dur)
-                        // 只更新 MediaSession 的 PlaybackState，不更新通知
-                        // MediaStyle 通知会自动从 MediaSession 获取进度信息
-                        withContext(Dispatchers.Main) {
-                            updatePlaybackStateOnly()
-                        }
-                    } catch (_: Exception) {
-                    }
-                }
-                delay(200) // 每 200ms 更新一次，确保进度条流畅
-            }
-        }
-    }
-
-    /**
-     * 停止更新进度
-     */
-    private fun stopProgressUpdate() {
-        progressJob?.cancel()
-        progressJob = null
-    }
-
-    /**
-     * 释放 MediaPlayer
-     */
-    private fun releaseMediaPlayer() {
-        serviceScope.launch {
-            try {
-                mediaPlayer?.release()
-            } catch (_: Exception) {
-            }
-            mediaPlayer = null
-        }
-    }
-
-    // 公共方法供外部调用
-    fun getCurrentMusic(): Music? = currentMusic
-    fun getIsPlaying(): Boolean = isPlaying
-    fun getCurrentPosition(): Int = currentPosition.get()
-    fun getDuration(): Int = duration.get()
-
-    fun setOnPlaybackStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
-        onPlaybackStateChanged = callback
-    }
-
-    fun setOnProgressUpdateListener(callback: (currentPosition: Int, duration: Int) -> Unit) {
-        onProgressUpdate = callback
-    }
 }
-
