@@ -196,12 +196,6 @@ A: 可能是网络连接问题或API限制，应用会使用默认封面作为 f
 - [Room](https://developer.android.com/training/data-storage/room) - 本地数据库
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) - UI工具包
 
-## 📞 联系方式
-
-- 作者：Your Name
-- GitHub：[yourusername](https://github.com/yourusername)
-- Email：<your.email@example.com>
-
 ***
 
 **享受音乐，享受生活！🎵**
