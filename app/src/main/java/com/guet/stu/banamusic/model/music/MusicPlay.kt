@@ -126,7 +126,7 @@ object MusicPlay {
     fun playNext(): Music? {
         if (playList.isEmpty()) {
             // 如果没有播放列表，触发完成回调，让外部处理
-            onCompletion?.invoke()
+            notifyCompletion()
             return null
         }
         currentIndex = (currentIndex + 1) % playList.size
@@ -179,8 +179,10 @@ object MusicPlay {
     private var playJob: Job? = null
 
     /** 回调 */
-    private var onProgressUpdate: ((currentPosition: Int, duration: Int) -> Unit)? = null
-    private var onCompletion: (() -> Unit)? = null
+    private val progressUpdateListeners = mutableSetOf<(currentPosition: Int, duration: Int) -> Unit>()
+    private var legacyProgressUpdateListener: ((currentPosition: Int, duration: Int) -> Unit)? = null
+    private val completionListeners = mutableSetOf<() -> Unit>()
+    private var legacyCompletionListener: (() -> Unit)? = null
     private val playingStateListeners = mutableSetOf<(isPlaying: Boolean) -> Unit>()
     private var legacyPlayingStateListener: ((isPlaying: Boolean) -> Unit)? = null
 
@@ -189,29 +191,60 @@ object MusicPlay {
     // --------------------------
 
     fun setOnProgressUpdateListener(callback: (currentPosition: Int, duration: Int) -> Unit) {
-        onProgressUpdate = callback
+        legacyProgressUpdateListener?.let { progressUpdateListeners.remove(it) }
+        legacyProgressUpdateListener = callback
+        addProgressUpdateListener(callback)
+    }
+
+    fun addProgressUpdateListener(callback: (currentPosition: Int, duration: Int) -> Unit) {
+        progressUpdateListeners.add(callback)
+        callback.invoke(_currentPosition.get(), _duration.get())
     }
 
     fun removeProgressUpdateListener() {
-        onProgressUpdate = null
+        legacyProgressUpdateListener?.let { progressUpdateListeners.remove(it) }
+        legacyProgressUpdateListener = null
+    }
+
+    fun removeProgressUpdateListener(callback: (currentPosition: Int, duration: Int) -> Unit) {
+        progressUpdateListeners.remove(callback)
+        if (legacyProgressUpdateListener === callback) {
+            legacyProgressUpdateListener = null
+        }
     }
 
     fun setOnCompletionListener(callback: () -> Unit) {
-        onCompletion = callback
+        legacyCompletionListener?.let { completionListeners.remove(it) }
+        legacyCompletionListener = callback
+        addCompletionListener(callback)
+    }
+
+    fun addCompletionListener(callback: () -> Unit) {
+        completionListeners.add(callback)
     }
 
     fun removeCompletionListener() {
-        onCompletion = null
+        legacyCompletionListener?.let { completionListeners.remove(it) }
+        legacyCompletionListener = null
+    }
+
+    fun removeCompletionListener(callback: () -> Unit) {
+        completionListeners.remove(callback)
+        if (legacyCompletionListener === callback) {
+            legacyCompletionListener = null
+        }
     }
 
     fun setOnPlayingStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
         legacyPlayingStateListener?.let { playingStateListeners.remove(it) }
         legacyPlayingStateListener = callback
         playingStateListeners.add(callback)
+        callback.invoke(_isPlaying)
     }
 
     fun addPlayingStateChangedListener(callback: (isPlaying: Boolean) -> Unit) {
         playingStateListeners.add(callback)
+        callback.invoke(_isPlaying)
     }
 
     fun removePlayingStateChangedListener() {
@@ -229,6 +262,18 @@ object MusicPlay {
         }
     }
 
+    private fun notifyProgressUpdated(currentPosition: Int, duration: Int) {
+        progressUpdateListeners.toList().forEach { listener ->
+            listener.invoke(currentPosition, duration)
+        }
+    }
+
+    private fun notifyCompletion() {
+        completionListeners.toList().forEach { listener ->
+            listener.invoke()
+        }
+    }
+
     // --------------------------
     // 播放控制
     // --------------------------
@@ -237,75 +282,106 @@ object MusicPlay {
      * 播放音乐
      */
     fun play(music: Music, onPrepared: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) {
-        if (currentMusic?.id == music.id && _isPlaying) return
+        if (currentMusic?.id == music.id && _isPlaying) {
+            notifyPlayingStateChanged(true)
+            notifyProgressUpdated(_currentPosition.get(), _duration.get())
+            onPrepared?.invoke()
+            return
+        }
 
         playJob?.cancel()
 
         playJob = playScope.launch {
+            var player: MediaPlayer? = null
             try {
                 releasePlayer()
                 currentMusic = music
+                _isPlaying = false
+                _currentPosition.set(0)
+                _duration.set(0)
+                notifyPlayingStateChanged(false)
+                notifyProgressUpdated(0, 0)
 
                 // 启动前台服务
                 startPlaybackService()
 
-                val player = withContext(Dispatchers.IO) {
-                    MediaPlayer().apply {
-                        setAudioAttributes(
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_MEDIA)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                .build()
-                        )
+                val newPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                }
 
-                        val context = appContext
-                        if (music.url.startsWith("content://") && context != null) {
-                            try {
-                                val uri = Uri.parse(music.url)
-                                setDataSource(context, uri)
-                            } catch (e: Exception) {
-                                setDataSource(music.url)
-                            }
-                        } else {
-                            setDataSource(music.url)
+                player = newPlayer
+                mediaPlayer = newPlayer
+
+                newPlayer.setOnPreparedListener {
+                    if (mediaPlayer !== it) return@setOnPreparedListener
+
+                    _isPlaying = true
+                    it.start()
+                    _duration.set(it.duration)
+                    _currentPosition.set(it.currentPosition)
+                    notifyPlayingStateChanged(true)
+                    notifyProgressUpdated(_currentPosition.get(), _duration.get())
+                    onPrepared?.invoke()
+                    startProgressUpdate()
+                    updateServiceState()
+                }
+
+                newPlayer.setOnCompletionListener {
+                    if (mediaPlayer !== it) return@setOnCompletionListener
+
+                    _isPlaying = false
+                    _currentPosition.set(0)
+                    stopProgressUpdate()
+                    notifyPlayingStateChanged(false)
+                    notifyProgressUpdated(0, _duration.get())
+                    updateServiceState()
+                    notifyCompletion()
+                }
+
+                newPlayer.setOnErrorListener { playerWithError, what, extra ->
+                    if (mediaPlayer !== playerWithError) return@setOnErrorListener true
+
+                    _isPlaying = false
+                    stopProgressUpdate()
+                    notifyPlayingStateChanged(false)
+                    notifyProgressUpdated(_currentPosition.get(), _duration.get())
+                    updateServiceState()
+                    onError?.invoke("播放错误: what=$what, extra=$extra")
+                    true
+                }
+
+                withContext(Dispatchers.IO) {
+                    val context = appContext
+                    if (music.url.startsWith("content://") && context != null) {
+                        try {
+                            val uri = Uri.parse(music.url)
+                            newPlayer.setDataSource(context, uri)
+                        } catch (e: Exception) {
+                            newPlayer.setDataSource(music.url)
                         }
-
-                        setOnPreparedListener {
-                            _isPlaying = true
-                            it.start()
-                            _duration.set(it.duration)
-                            notifyPlayingStateChanged(true)
-                            onPrepared?.invoke()
-                            startProgressUpdate()
-                            updateServiceState()
-                        }
-
-                        setOnCompletionListener {
-                            _isPlaying = false
-                            _currentPosition.set(0)
-                            stopProgressUpdate()
-                            notifyPlayingStateChanged(false)
-                            updateServiceState()
-                            onCompletion?.invoke()
-                        }
-
-                        setOnErrorListener { _, what, extra ->
-                            _isPlaying = false
-                            stopProgressUpdate()
-                            notifyPlayingStateChanged(false)
-                            updateServiceState()
-                            onError?.invoke("播放错误: what=$what, extra=$extra")
-                            true
-                        }
-
-                        prepareAsync()
+                    } else {
+                        newPlayer.setDataSource(music.url)
                     }
                 }
 
-                mediaPlayer = player
+                if (mediaPlayer !== newPlayer) return@launch
+                newPlayer.prepareAsync()
 
+            } catch (e: CancellationException) {
+                player?.takeIf { mediaPlayer === it }?.let { releasePlayer() }
+                throw e
             } catch (e: Exception) {
+                player?.takeIf { mediaPlayer === it }?.let { releasePlayer() }
                 _isPlaying = false
+                stopProgressUpdate()
+                notifyPlayingStateChanged(false)
+                notifyProgressUpdated(_currentPosition.get(), _duration.get())
+                updateServiceState()
                 onError?.invoke(e.message ?: "播放失败")
             }
         }
@@ -344,9 +420,11 @@ object MusicPlay {
         playScope.launch {
             mediaPlayer?.let {
                 if (it.isPlaying) {
+                    _currentPosition.set(it.currentPosition)
                     it.pause()
                     _isPlaying = false
                     notifyPlayingStateChanged(false)
+                    notifyProgressUpdated(_currentPosition.get(), _duration.get())
                     stopProgressUpdate()
                     updateServiceState()
                 }
@@ -364,6 +442,7 @@ object MusicPlay {
                     it.start()
                     _isPlaying = true
                     notifyPlayingStateChanged(true)
+                    notifyProgressUpdated(it.currentPosition, _duration.get())
                     startProgressUpdate()
                     updateServiceState()
                 }
@@ -385,8 +464,15 @@ object MusicPlay {
         playScope.launch {
             mediaPlayer?.let {
                 try {
-                    it.seekTo(position)
-                    _currentPosition.set(position)
+                    val duration = _duration.get()
+                    val target = if (duration > 0) {
+                        position.coerceIn(0, duration)
+                    } else {
+                        position.coerceAtLeast(0)
+                    }
+                    it.seekTo(target)
+                    _currentPosition.set(target)
+                    notifyProgressUpdated(target, duration)
                     updateServiceState()
                 } catch (_: Exception) {}
             }
@@ -405,6 +491,7 @@ object MusicPlay {
             currentMusic = null
             _currentPosition.set(0)
             _duration.set(0)
+            notifyProgressUpdated(0, 0)
             updateServiceState()
         }
     }
@@ -429,7 +516,7 @@ object MusicPlay {
                         _currentPosition.set(pos)
                         if (dur > 0) _duration.set(dur)
 
-                        onProgressUpdate?.invoke(pos, dur)
+                        notifyProgressUpdated(pos, dur)
 
                         // 每 1 秒更新一次 Service 状态（减少通知刷新频率）
                         if (pos % 1000 < 200) {
@@ -448,10 +535,8 @@ object MusicPlay {
     }
 
     private fun releasePlayer() {
-        playScope.launch {
-            try { mediaPlayer?.release() } catch (_: Exception) {}
-            mediaPlayer = null
-        }
+        try { mediaPlayer?.release() } catch (_: Exception) {}
+        mediaPlayer = null
     }
 
     /**

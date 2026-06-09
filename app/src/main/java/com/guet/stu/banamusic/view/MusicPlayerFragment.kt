@@ -55,6 +55,22 @@ class MusicPlayerFragment : Fragment() {
     private var isCurrentFavorite: Boolean = false
     // 播放模式：0 顺序播放，1 随机播放，2 单曲循环
     private var playMode: Int = 0
+    private var isUserSeeking: Boolean = false
+    private val progressUpdateListener: (Int, Int) -> Unit = { currentPosition, duration ->
+        if (_binding != null && !isUserSeeking) {
+            updateProgress(currentPosition, duration)
+        }
+    }
+    private val playingStateListener: (Boolean) -> Unit = { isPlaying ->
+        if (_binding != null) {
+            updatePlayPauseIcon(isPlaying)
+        }
+    }
+    private val completionListener: () -> Unit = {
+        if (_binding != null) {
+            viewModel.playNext()
+        }
+    }
 
 
     override fun onCreateView(
@@ -78,35 +94,43 @@ class MusicPlayerFragment : Fragment() {
         binding.btnNext.setOnClickListener { playNext() }
         binding.btnLike.setOnClickListener { toggleFavorite() }
         binding.btnMode.setOnClickListener { togglePlayMode() }
+        setupSeekBar()
+        registerPlaybackListeners()
+        syncPlaybackUi()
+
+    }
+
+    private fun setupSeekBar() {
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    MusicPlay.seekTo(progress)
+                    binding.tvCurrentTime.text = formatTime(progress)
+                    updateLyricsByProgress(progress)
                 }
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        
-        // 设置播放进度更新监听
-        MusicPlay.setOnProgressUpdateListener { currentPosition, duration ->
-            updateProgress(currentPosition, duration)
-        }
-        
-        // 设置播放状态变化监听，根据 MusicPlay.isPlaying 更新图标
-        MusicPlay.setOnPlayingStateChangedListener { isPlaying ->
-            updatePlayPauseIcon(isPlaying)
-        }
-        
-        // 设置播放完成监听（自动播放下一首）
-        MusicPlay.setOnCompletionListener {
-            val nextMusic = viewModel.playNext()
-            // 播放状态变化会通过 onPlayingStateChangedListener 自动更新图标
-        }
-        
-        // 初始化时根据当前播放状态显示图标
-        updatePlayPauseIcon(MusicPlay.isPlaying)
 
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                isUserSeeking = true
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                val target = seekBar?.progress ?: return
+                isUserSeeking = false
+                updateProgress(target, MusicPlay.duration.takeIf { it > 0 } ?: (seekBar.max))
+                MusicPlay.seekTo(target)
+            }
+        })
+    }
+
+    private fun registerPlaybackListeners() {
+        MusicPlay.addProgressUpdateListener(progressUpdateListener)
+        MusicPlay.addPlayingStateChangedListener(playingStateListener)
+        MusicPlay.addCompletionListener(completionListener)
+    }
+
+    private fun syncPlaybackUi() {
+        updatePlayPauseIcon(MusicPlay.isPlaying)
+        updateProgress(MusicPlay.currentPosition, MusicPlay.duration)
     }
     
     /**
@@ -204,8 +228,6 @@ class MusicPlayerFragment : Fragment() {
                 // 静默处理错误，不显示toast
             }
         )
-        // 初始状态：准备播放时根据当前状态显示图标
-        updatePlayPauseIcon(MusicPlay.isPlaying)
         playlistActionsViewModel.logHistory(music)
     }
     
@@ -229,9 +251,6 @@ class MusicPlayerFragment : Fragment() {
 
     private fun togglePlayback() {
         MusicPlay.toggle()
-        // 播放状态变化会通过 onPlayingStateChangedListener 自动更新图标
-        // 这里立即更新一次，确保 UI 响应及时
-        updatePlayPauseIcon(MusicPlay.isPlaying)
     }
 
     private fun updatePlayPauseIcon(isPlaying: Boolean) {
@@ -255,9 +274,9 @@ class MusicPlayerFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         // 移除所有监听，但不停止播放
-        MusicPlay.removeProgressUpdateListener()
-        MusicPlay.removeCompletionListener()
-        MusicPlay.removePlayingStateChangedListener()
+        MusicPlay.removeProgressUpdateListener(progressUpdateListener)
+        MusicPlay.removeCompletionListener(completionListener)
+        MusicPlay.removePlayingStateChangedListener(playingStateListener)
         favoriteStateJob?.cancel()
         lyricsAdapter = null
         _binding = null
@@ -265,8 +284,8 @@ class MusicPlayerFragment : Fragment() {
     
     override fun onResume() {
         super.onResume()
-        // 恢复时根据当前播放状态更新图标
-        updatePlayPauseIcon(MusicPlay.isPlaying)
+        // 恢复时根据当前播放状态更新图标和进度
+        syncPlaybackUi()
     }
 
     private fun observeFavoriteState(music: Music) {
