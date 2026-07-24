@@ -15,29 +15,6 @@
 - **收藏功能**：一键收藏喜欢的歌曲
 - **历史记录**：自动记录播放历史
 
-### 技术亮点
-
-- **现代Android架构**：MVVM + Repository + Kotlin协程
-- **响应式UI**：LiveData + Flow实现数据与UI的响应式解耦
-- **图片加载**：Coil三级缓存策略，优化专辑封面加载
-- **网络请求**：Retrofit + OkHttp实现网络音乐搜索
-- **数据持久化**：Room数据库存储播放列表和音乐元数据
-- **Jetpack Compose**：部分UI采用Compose实现
-- **状态栏适配**：沉浸式状态栏，适配各种屏幕尺寸
-
-## 🛠 技术栈
-
-| 技术                | 版本      | 用途     |
-| ----------------- | ------- | ------ |
-| Kotlin            | 1.8.0+  | 主要开发语言 |
-| Android SDK       | API 21+ | 应用开发框架 |
-| MVVM              | -       | 架构模式   |
-| Room              | 2.5.0+  | 本地数据库  |
-| Retrofit          | 2.9.0+  | 网络请求   |
-| Coil              | 2.3.0+  | 图片加载   |
-| Kotlin Coroutines | 1.6.0+  | 异步处理   |
-| Jetpack Compose   | 1.2.0+  | UI组件   |
-| MediaSession      | -       | 媒体控制   |
 
 ## 📦 安装指南
 
@@ -80,28 +57,6 @@
 - **进度拖动**：通过进度条调整播放进度
 - **后台播放**：应用退到后台时音乐继续播放
 - **锁屏控制**：在锁屏界面控制音乐播放
-
-## 📁 项目结构
-
-```
-BanaMusic/
-├── app/
-│   ├── src/main/
-│   │   ├── java/com/guet/stu/banamusic/
-│   │   │   ├── adapter/         # 适配器
-│   │   │   ├── model/            # 数据模型
-│   │   │   ├── network/          # 网络请求
-│   │   │   ├── service/          # 服务
-│   │   │   ├── util/             # 工具类
-│   │   │   ├── view/             # 视图
-│   │   │   ├── viewmodel/        # 视图模型
-│   │   │   └── MainApplication.kt
-│   │   ├── res/                  # 资源文件
-│   │   └── AndroidManifest.xml   # 应用配置
-│   └── build.gradle              # 模块配置
-├── build.gradle                  # 项目配置
-└── README.md                     # 项目说明
-```
 
 ## 🔧 核心模块
 
@@ -166,35 +121,12 @@ A: 应用会自动扫描设备中的音乐文件，确保音乐文件位于设�
 
 A: 可能是网络连接问题或API限制，应用会使用默认封面作为 fallback。
 
-## 🤝 贡献指南
-
-欢迎贡献代码、报告问题或提出建议！
-
-### 贡献流程
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
-
 ### 代码规范
 
 - 遵循Kotlin官方代码风格
 - 提交前运行代码检查
 - 编写清晰的注释
 - 确保代码测试覆盖
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
-## 🙏 致谢
-
-- [Coil](https://coil-kt.github.io/coil/) - 图片加载库
-- [Retrofit](https://square.github.io/retrofit/) - 网络请求库
-- [Room](https://developer.android.com/training/data-storage/room) - 本地数据库
-- [Jetpack Compose](https://developer.android.com/jetpack/compose) - UI工具包
 
 ***
 
